@@ -1,0 +1,50 @@
+# --- Python / ML ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+.pytest_cache/
+.ipynb_checkpoints/
+# Weights and Model Checkpoints
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.gguf
+# Data
+data/raw/
+data/processed/
+*.csv
+*.jsonl
+*.parquet
+
+# --- Rust ---
+/target/
+Cargo.lock
+**/*.rs.bk
+
+# --- Frontend / Extensions ---
+.DS_Store
+node_modules/
+.npm/
+dist/
+build/
+*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+Thumbs.db
+desktop.ini
