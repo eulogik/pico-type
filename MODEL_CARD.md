@@ -42,21 +42,23 @@ ByteEmbed → Conv1D×3 → BiAttention×2 → Pool → Matryoshka Heads
 
 ## Performance
 
-Benchmarked on synthetic data (1000 samples, 1024 bytes max, base tier):
+Benchmarked on synthetic data (500 samples, 1024 bytes max, base tier, 800 training steps):
 
-| Head | Accuracy |
-|------|----------|
-| coarse | 99.4% |
-| modality | 100.0% |
-| subtype | 95.4% |
-| text_lang | 81.3% |
-| file_mime | 100.0% |
-| risk (mAP) | 90.5% |
+| Head | Accuracy | Support |
+|------|----------|---------|
+| coarse | 100.0% | 500 |
+| modality | 100.0% | 500 |
+| subtype | 98.4% | 128 |
+| code_lang | 54.2% | 48 |
+| text_lang | 88.6% | 35 |
+| file_mime | 100.0% | 131 |
+| risk (mAP) | 99.6% | — |
 
-- **Inference**: ~11ms per sample on CPU (ONNX)
+- **Inference**: ~8ms per sample on CPU (ONNX Runtime)
 - **Model size**: ~200KB (FP32 ONNX)
+- **Loss**: 2.72 eval_loss (step 800)
 
-> **code_lang** shows 47.1% accuracy due to broad language coverage (62 classes). Performance improves with longer code sequences (>256 bytes).
+> **code_lang** accuracy (54.2%) reflects 62-class coverage; improves with longer sequences (>256 bytes). v0.2 will target better code language discrimination.
 
 ## Usage
 
