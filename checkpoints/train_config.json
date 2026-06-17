@@ -1,1 +1,1 @@
-{"lr": 0.0005, "total_steps": 1500, "batch_size": 32, "train_tiers": ["base"]}
+{"lr": 0.001, "total_steps": 2800, "batch_size": 16, "train_tiers": ["base"]}

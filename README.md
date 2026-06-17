@@ -31,13 +31,13 @@ Classifies any content into **7 categories** from raw bytes: coarse type, modali
 |------|---------|----------|
 | coarse | 12 | **100%** |
 | modality | 8 | **100%** |
-| subtype | 24 | **98.4%** |
-| code_lang | 62 | **54.2%** |
-| text_lang | 30 | **88.6%** |
+| subtype | 24 | **93.8%** |
+| code_lang | 62 | **41.7%** |
+| text_lang | 30 | **94.3%** |
 | file_mime | 90 | **100%** |
-| risk (mAP) | 6 | **99.6%** |
+| risk (mAP) | 6 | **100%** |
 
-_500 evaluation samples, 800 training steps, base tier, 8ms inference._
+_500 evaluation samples, 1700 training steps, base tier, ~13ms inference._
 
 ## 🚀 Quick Start
 
