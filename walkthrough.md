@@ -14,11 +14,17 @@ Built per the locked-in plan in [`docs/PLAN.md`](docs/PLAN.md) (recovered from t
 Existing clipboard tools are regex-only (ClipGate, 13 types) or LLM-powered (needs Ollama, GB-scale). Existing tiny classifiers do one job. **No model does all of them in one sub-5MB forward pass with a multi-head output.**
 
 ### Deliverables
-- HuggingFace model (Apache-2.0) with 4 Matryoshka tiers
-- Rust + Python CLI (`picotype`)
-- Gradio Space that doubles as an **MCP server**
-- Browser extension, Raycast/Alfred/VSCode extensions
-- arXiv paper
+- HuggingFace model (Apache-2.0) with 4 Matryoshka tiers ✅ (ONNX exported)
+- Python CLI (`picotype`) ✅
+- Gradio Space app ✅ (`gradio_app.py`)
+- MCP server ✅ (`model/pico_type/mcp_server.py`)
+- pytest smoke tests ✅ (`tests/test_smoke.py`)
+- HF model card ✅ (`MODEL_CARD.md`)
+- Badge'd README ✅
+- Rust CLI (`crates/picotype/`) — pending
+- Rust MCP server (`crates/picotype-mcp/`) — pending
+- Browser extension, Raycast/Alfred/VSCode extensions — pending
+- arXiv paper — pending
 
 ---
 
@@ -78,31 +84,32 @@ Actual sizes came in **under** the plan's targets (0.5/1.5/3.5/8 MB INT8). Trunk
 ```
 classifier-model/
 ├── .venv/                          # Python 3.11 venv (torch, numpy<2, safetensors, pyyaml)
-├── .git/                           # init'd, no commits yet
+├── .git/
+├── checkpoints/                    # best.pt, ONNX models, eval results
 ├── docs/
-│   └── PLAN.md                     # Full plan recovered from opencode session
+│   └── PLAN.md                    # Full architecture plan
+├── gradio_app.py                  # Gradio Space app
 ├── model/
 │   └── pico_type/
-│       ├── __init__.py             # re-exports public API
-│       ├── labels.py               # ✅ vocabularies + decode_output
-│       ├── arch.py                 # ✅ PicoType model + smoke test
-│       ├── data.py                 # ⏳ TODO: synthetic generator
-│       ├── train.py                # ⏳ TODO: multi-task trainer
-│       ├── distill.py              # ⏳ TODO: KD from per-head teachers
-│       ├── eval.py                 # ⏳ TODO: public eval harness
-│       └── export.py               # ⏳ TODO: ONNX, int8, tract, gguf
-├── crates/
-│   ├── picotype/                   # empty (Rust CLI)
-│   └── picotype-mcp/               # empty (Rust MCP server)
-├── extensions/
-│   ├── chrome/                     # empty (MV3)
-│   ├── raycast/                    # empty
-│   ├── alfred/                     # empty
-│   └── vscode/                     # empty
-├── spaces/picotype/                # empty (Gradio + MCP)
-├── eval/                           # empty
-├── paper/                          # empty (arXiv LaTeX)
-└── walkthrough.md                  # ← this file
+│       ├── __init__.py            # re-exports public API
+│       ├── labels.py              # vocabularies + decode_output
+│       ├── arch.py                # PicoType model
+│       ├── data.py                # synthetic generator
+│       ├── train.py               # multi-task trainer
+│       ├── eval.py                # eval harness
+│       ├── distill.py             # KD pipeline
+│       ├── export.py              # ONNX export
+│       ├── cli.py                 # Python CLI (picotype)
+│       └── mcp_server.py          # MCP server (stdio)
+├── tests/
+│   └── test_smoke.py              # pytest smoke tests
+├── spaces/
+│   └── requirements.txt           # HF Space dependencies
+├── MODEL_CARD.md                  # HF model card
+├── README.md                      # badge'd README
+├── LICENSE                        # Apache-2.0
+├── pyproject.toml
+└── walkthrough.md                 # this file
 ```
 
 ---
@@ -248,13 +255,20 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 | 1 | `data.py` | Synthetic generator + dataset for multi-head training. 11 buckets, all 12 coarse classes, code/word templates for all 62/30 langs. | ✅ **done** |
 | 2 | `train.py` | Multi-task trainer. AdamW + cosine, bf16, per-head loss weighting, gradient clipping, checkpoint save/load. | ✅ **done** |
 | 3 | `eval.py` | Eval harness: per-head accuracy/PRF1, confusion matrix, risk AP, inference timing. CLI entry point. | ✅ **done** |
-| 4 | `distill.py` | KD from per-head teachers (deberta-v3-small, CodeBERTa-lang-id, xlm-roberta-lang-detect, magic-bert-50m). T=2.0, α=0.7. | pending |
-| 5 | `export.py` | ONNX, int8, tract, gguf export. | pending |
-| 6 | `crates/picotype/` | Rust CLI w/ ONNX runtime. | pending |
-| 7 | `crates/picotype-mcp/` | Rust MCP server (stdio + Streamable HTTP). | pending |
-| 8 | `extensions/*` | Chrome MV3, Raycast, Alfred, VSCode. | pending |
-| 9 | `spaces/picotype/` | Gradio Space + HF MCP registration. | pending |
-| 10 | `paper/` | arXiv LaTeX. | pending |
+| 4 | `distill.py` | KD from per-head teachers (deberta-v3-small, CodeBERTa-lang-id, xlm-roberta-lang-detect). T=2.0, α=0.7. | ✅ **done** |
+| 5 | `export.py` | ONNX export (opset 18), int8, tract, gguf. | ✅ **done** |
+| 6 | `cli.py` | Python CLI (`picotype`) — stdin/file/clipboard input → ONNX inference → JSON output | ✅ **done** |
+| 7 | `mcp_server.py` | MCP server (stdio transport) for Claude/Cursor/VSCode | ✅ **done** |
+| 8 | `gradio_app.py` | Gradio Space app for HF Spaces | ✅ **done** |
+| 9 | `tests/test_smoke.py` | pytest smoke tests (8 tests: arch, data, ONNX, CLI, labels) | ✅ **done** |
+| 10 | `MODEL_CARD.md` | HuggingFace model card with eval results | ✅ **done** |
+| 11 | `README.md` | Overhauled with badges, perf table, deploy links | ✅ **done** |
+| 12 | `spaces/requirements.txt` | Dependencies for HF Space deployment | ✅ **done** |
+| 13 | `spaces/picotype/` | Gradio Space + HF MCP registration. | pending |
+| 14 | `crates/picotype/` | Rust CLI w/ ONNX runtime. | pending |
+| 15 | `crates/picotype-mcp/` | Rust MCP server (stdio + Streamable HTTP). | pending |
+| 16 | `extensions/*` | Chrome MV3, Raycast, Alfred, VSCode. | pending |
+| 17 | `paper/` | arXiv LaTeX. | pending |
 
 ---
 

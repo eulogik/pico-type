@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple
 
@@ -151,7 +150,6 @@ class AttnBlock(nn.Module):
         qkv = self.qkv(h).reshape(B, L, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
         q, k = self.rope(q, k)
-        attn_mask = None
         attn_mask_float = None
         if mask is not None:
             attn_mask_float = mask[:, None, None, :].to(dtype=q.dtype)

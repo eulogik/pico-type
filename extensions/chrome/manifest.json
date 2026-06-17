@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "pico-type",
+  "version": "0.1.0",
+  "description": "Real-time content type detection — identifies code languages, text languages, file types, and secrets in your clipboard",
+  "permissions": [
+    "clipboardRead",
+    "activeTab",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}

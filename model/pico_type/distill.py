@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -12,27 +11,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from .arch import PicoType, PicoTypeConfig
+from .arch import PicoType
 from .data import (
     IGNORE_INDEX,
-    MAX_BYTES,
-    Sample,
     SyntheticGenerator,
     SyntheticDataset,
 )
 from .labels import (
-    CODE_LANG_LABELS,
-    FILE_MIME_LABELS,
     HEAD_NUM_CLASSES,
-    TEXT_LANG_LABELS,
 )
 from .train import (
-    DEFAULT_HEAD_WEIGHTS,
-    MultiTaskLoss,
     TrainConfig,
     collate_fn,
     get_lr,
-    load_checkpoint,
 )
 
 
@@ -85,7 +76,6 @@ class DistillDataset(SyntheticDataset):
         return self._soft_labels
 
     def _run_teacher(self, teacher: nn.Module, text: str, head: str) -> torch.Tensor:
-        teacher.to(self.device)
         teacher.eval()
         with torch.no_grad():
             inputs = self._tokenize(text, teacher, head)
@@ -116,9 +106,11 @@ class DistillLoss(nn.Module):
         temperature: float = 2.0,
     ):
         super().__init__()
-        self.ce = MultiTaskLoss(weights)
+        self.weights = weights
         self.alpha = alpha
         self.temperature = temperature
+        self.ce = nn.CrossEntropyLoss(reduction="mean", ignore_index=IGNORE_INDEX)
+        self.bce = nn.BCEWithLogitsLoss(reduction="mean")
         self.kl = nn.KLDivLoss(reduction="batchmean")
 
     def forward(
@@ -127,12 +119,14 @@ class DistillLoss(nn.Module):
         labels: Dict[str, torch.Tensor],
         teacher_logits: Optional[Dict[str, torch.Tensor]] = None,
     ) -> Tuple[torch.Tensor, Dict[str, float]]:
-        _, comps = self.ce(student_logits, labels)
         total = torch.zeros(1, device=next(iter(student_logits.values())).device)
         individual: Dict[str, float] = {}
         for head in student_logits:
-            hard_loss = torch.tensor(comps.get(head, 0.0), device=total.device)
-            w = self.ce.weights.get(head, 1.0)
+            w = self.weights.get(head, 1.0)
+            if head == "risk":
+                hard_loss = self.bce(student_logits[head], labels[head])
+            else:
+                hard_loss = self.ce(student_logits[head], labels[head])
             if teacher_logits and head in teacher_logits and teacher_logits[head] is not None:
                 s_log = F.log_softmax(student_logits[head] / self.temperature, dim=-1)
                 t_soft = F.softmax(teacher_logits[head] / self.temperature, dim=-1)
@@ -161,11 +155,16 @@ def build_teachers(
     teachers: Dict[str, nn.Module] = {}
 
     try:
-        model = AutoModelForSequenceClassification.from_pretrained(
+        teachers["coarse"] = AutoModelForSequenceClassification.from_pretrained(
             "microsoft/deberta-v3-small", num_labels=HEAD_NUM_CLASSES["coarse"], **kwargs
-        )
-        teachers["coarse"] = model.to(device).eval()
-        teachers["modality"] = model.to(device).eval()
+        ).to(device).eval()
+    except Exception:
+        pass
+
+    try:
+        teachers["modality"] = AutoModelForSequenceClassification.from_pretrained(
+            "microsoft/deberta-v3-small", num_labels=HEAD_NUM_CLASSES["modality"], **kwargs
+        ).to(device).eval()
     except Exception:
         pass
 
@@ -198,9 +197,7 @@ def distill_train(config: DistillConfig) -> DistillConfig:
 
     gen = SyntheticGenerator(seed=cfg.seed)
     train_ds = DistillDataset(gen, cfg.train_size, teachers, config.temperature, device)
-    eval_ds = SyntheticDataset(SyntheticGenerator(seed=cfg.seed + 1), cfg.eval_size)
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=0)
-    eval_loader = DataLoader(eval_ds, batch_size=cfg.batch_size, collate_fn=collate_fn, num_workers=0)
 
     model = PicoType(cfg.model_config).to(device)
     criterion = DistillLoss(cfg.head_weights, config.alpha, config.temperature)
@@ -213,7 +210,6 @@ def distill_train(config: DistillConfig) -> DistillConfig:
 
     os.makedirs(cfg.output_dir, exist_ok=True)
     step = 0
-    best_loss = float("inf")
     train_ds._ensure_soft()
 
     while step < cfg.total_steps:

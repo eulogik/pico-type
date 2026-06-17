@@ -8,29 +8,15 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
 from .arch import PicoType, PicoTypeConfig
-
-
-def _average_precision(y_true, y_scores):
-    """Average precision as precision-at-positive averaged over positives."""
-    import numpy as np
-    order = y_scores.argsort()[::-1]
-    y_true = y_true[order]
-    positives = y_true.sum()
-    if positives <= 0:
-        return 0.0
-    tp = y_true.cumsum()
-    ranks = np.arange(1, len(y_true) + 1, dtype=np.float64)
-    precision = tp / ranks
-    return float((precision * y_true).sum() / positives)
 from .data import (
     IGNORE_INDEX,
     SyntheticGenerator,
     SyntheticDataset,
-    Sample,
 )
 from .labels import (
     COARSE_LABELS,
@@ -41,12 +27,24 @@ from .labels import (
     FILE_MIME_LABELS,
     RISK_LABELS,
     HEAD_NUM_CLASSES,
-    label_for,
 )
 from .train import collate_fn
 
 ALL_HEADS = ("coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime", "risk")
 SINGLE_LABEL_HEADS = ALL_HEADS[:-1]
+
+
+def _average_precision(y_true, y_scores):
+    """Average precision as precision-at-positive averaged over positives."""
+    order = y_scores.argsort()[::-1]
+    y_true = y_true[order]
+    positives = y_true.sum()
+    if positives <= 0:
+        return 0.0
+    tp = y_true.cumsum()
+    ranks = np.arange(1, len(y_true) + 1, dtype=np.float64)
+    precision = tp / ranks
+    return float((precision * y_true).sum() / positives)
 
 
 @dataclass
@@ -184,11 +182,10 @@ def evaluate(config: EvalConfig) -> EvalResults:
     risk_items_true = results["risk_true"]
     risk_items_pred = results["risk_pred"]
     risk_pclass: Dict[str, Dict[str, float]] = {}
+    ap_values: List[float] = []
     if risk_items_true:
-        import numpy as np
         risk_arr = torch.from_numpy(np.asarray(risk_items_true))
         pred_arr = torch.from_numpy(np.asarray(risk_items_pred))
-        ap_values = []
         for i in range(len(RISK_LABELS)):
             y_t = risk_arr[:, i].numpy()
             y_p = pred_arr[:, i].numpy()

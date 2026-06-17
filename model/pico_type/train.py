@@ -14,8 +14,8 @@ import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
-from .arch import PicoType, PicoTypeConfig, encode_bytes
-from .data import IGNORE_INDEX, MAX_BYTES, MIN_BYTES, Sample, SyntheticGenerator, SyntheticDataset
+from .arch import PicoType, PicoTypeConfig
+from .data import IGNORE_INDEX, MAX_BYTES, Sample, SyntheticGenerator, SyntheticDataset
 from .labels import HEAD_NUM_CLASSES
 
 ALL_HEADS = ("coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime", "risk")
@@ -54,6 +54,7 @@ class TrainConfig:
     compile: bool = False
     tier: str = "base"
     train_tiers: Tuple[str, ...] = ("tiny", "small", "base", "pro")
+    resume_from: str = ""
 
 
 def collate_fn(batch: List[Sample]) -> Dict[str, torch.Tensor]:
@@ -79,7 +80,7 @@ def collate_fn(batch: List[Sample]) -> Dict[str, torch.Tensor]:
     labels["risk"] = risk_labels
     return {
         "input_ids": input_ids,
-        "attention_mask": attention_mask.bool() & attention_mask.bool(),
+        "attention_mask": attention_mask.bool(),
         "labels": labels,
     }
 
@@ -92,18 +93,18 @@ class MultiTaskLoss(nn.Module):
         self.bce = nn.BCEWithLogitsLoss(reduction="mean")
 
     def forward(self, logits: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, float]]:
-        losses: Dict[str, torch.Tensor] = {}
+        loss_tensors: Dict[str, torch.Tensor] = {}
         for head in SINGLE_LABEL_HEADS:
             lbl = labels[head]
             if (lbl != IGNORE_INDEX).sum() > 0:
-                losses[head] = self.ce(logits[head], lbl)
+                loss_tensors[head] = self.ce(logits[head], lbl)
             else:
-                losses[head] = torch.tensor(0.0, device=lbl.device)
-        losses["risk"] = self.bce(logits["risk"], labels["risk"])
+                loss_tensors[head] = torch.tensor(0.0, device=lbl.device)
+        loss_tensors["risk"] = self.bce(logits["risk"], labels["risk"])
 
         total = torch.zeros(1, device=next(iter(logits.values())).device)
         individual: Dict[str, float] = {}
-        for head, loss in losses.items():
+        for head, loss in loss_tensors.items():
             w = self.weights.get(head, 1.0)
             total = total + w * loss
             individual[head] = loss.detach().item()
@@ -178,13 +179,24 @@ def train(config: Optional[TrainConfig] = None) -> TrainConfig:
     os.makedirs(config.output_dir, exist_ok=True)
     step = 0
     best_loss = float("inf")
-    scaler = torch.amp.GradScaler("cuda" if device.type == "cuda" else "cpu") if device.type == "cuda" else None
-    amp_dtype = None
-    if device.type == "cuda":
-        if torch.cuda.is_bf16_supported():
-            amp_dtype = torch.bfloat16
-        else:
-            amp_dtype = torch.float16
+    last_loss = float("inf")
+
+    if config.resume_from:
+        path = config.resume_from
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"resume checkpoint not found: {path}")
+        ckpt = torch.load(path, map_location=device)
+        model.load_state_dict(ckpt["model_state_dict"])
+        if "optimizer_state_dict" in ckpt:
+            optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        step = ckpt.get("step", 0)
+        best_loss = ckpt.get("eval_loss", ckpt.get("loss", float("inf")))
+        print(f"Resumed from step {step}, best_loss={best_loss:.4f}")
+
+    use_amp = device.type == "cuda" or device.type == "mps"
+    use_bf16 = use_amp and device.type == "cuda" and torch.cuda.is_bf16_supported()
+    amp_dtype = torch.bfloat16 if use_bf16 else (torch.float16 if use_amp else None)
+    scaler = torch.amp.GradScaler(device.type) if (use_amp and not use_bf16) else None
     amp_ctx = torch.amp.autocast(device.type, dtype=amp_dtype) if amp_dtype else nullcontext()
 
     with open(os.path.join(config.output_dir, "train_config.json"), "w") as f:
@@ -288,8 +300,9 @@ def train(config: Optional[TrainConfig] = None) -> TrainConfig:
                 model.train()
 
             step += 1
+            last_loss = loss.item()
 
-    final = {"step": step, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "final_loss": loss.item()}
+    final = {"step": step, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "final_loss": last_loss}
     torch.save(final, os.path.join(config.output_dir, "final.pt"))
     return config
 

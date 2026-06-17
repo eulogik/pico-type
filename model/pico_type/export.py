@@ -80,7 +80,7 @@ def export_to_onnx(
     model: PicoType,
     output_dir: str,
     tier: str = "base",
-    opset: int = 17,
+    opset: int = 18,
     max_bytes: Optional[int] = None,
 ) -> str:
     model.eval()
@@ -101,11 +101,10 @@ def export_to_onnx(
         opset_version=opset,
         input_names=["input_ids", "attention_mask"],
         output_names=list(ALL_HEADS),
-        dynamic_axes={
-            "input_ids": {0: "batch_size", 1: "sequence_length"},
-            "attention_mask": {0: "batch_size", 1: "sequence_length"},
-            **{h: {0: "batch_size"} for h in ALL_HEADS},
-        },
+        dynamic_shapes=(
+            {0: "batch_size", 1: "sequence_length"},
+            {0: "batch_size", 1: "sequence_length"},
+        ),
     )
     return path
 
@@ -113,7 +112,7 @@ def export_to_onnx(
 def export_all_tiers(
     model: PicoType,
     output_dir: str,
-    opset: int = 17,
+    opset: int = 18,
     max_bytes: Optional[int] = None,
 ) -> Dict[str, str]:
     paths = {}
@@ -138,7 +137,6 @@ def quantize_dynamic(
     output_path: Optional[str] = None,
 ) -> str:
     try:
-        import onnx
         from onnxruntime.quantization import quantize_dynamic, QuantType
     except ImportError:
         raise ImportError("install onnx and onnxruntime: pip install onnx onnxruntime")
@@ -152,7 +150,7 @@ def export_with_quantization(
     model: PicoType,
     output_dir: str,
     tier: str = "base",
-    opset: int = 17,
+    opset: int = 18,
     max_bytes: Optional[int] = None,
 ) -> Dict[str, str]:
     fp32_path = export_to_onnx(model, output_dir, tier, opset, max_bytes)
@@ -172,7 +170,7 @@ def smoke_export(max_len: int = 128) -> Dict[str, int]:
     cfg = PicoTypeConfig(max_bytes=max_len)
     model = PicoType(cfg).eval()
     with tempfile.TemporaryDirectory() as tmp:
-        paths = export_all_tiers(model, tmp, opset=17, max_bytes=max_len)
+        paths = export_all_tiers(model, tmp, opset=18, max_bytes=max_len)
         sizes = {}
         for tier, p in paths.items():
             sizes[tier] = os.path.getsize(p)

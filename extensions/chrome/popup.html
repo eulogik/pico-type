@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { width: 320px; font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 12px; font-size: 13px; }
+    h1 { font-size: 16px; margin: 0 0 8px; color: #1a1a1a; }
+    .section { margin: 6px 0; }
+    .label { font-weight: 600; color: #555; display: inline-block; width: 80px; }
+    .value { color: #1a1a1a; }
+    .confidence { color: #888; font-size: 11px; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+    .badge-code { background: #e3f2fd; color: #1565c0; }
+    .badge-text { background: #e8f5e9; color: #2e7d32; }
+    .badge-secret { background: #fce4ec; color: #c62828; }
+    .badge-file { background: #fff3e0; color: #e65100; }
+    #status { color: #999; font-style: italic; }
+    .error { color: #c62828; }
+    .risk-item { font-size: 11px; color: #888; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .tier-select { font-size: 11px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; }
+    #refresh { cursor: pointer; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 12px; }
+    #refresh:hover { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>pico-type</h1>
+    <div>
+      <select id="tier" class="tier-select">
+        <option value="base">base</option>
+        <option value="tiny">tiny</option>
+        <option value="small">small</option>
+        <option value="pro">pro</option>
+      </select>
+      <button id="refresh">↻</button>
+    </div>
+  </div>
+  <div id="status">Read clipboard...</div>
+  <div id="results"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

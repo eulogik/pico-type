@@ -284,7 +284,6 @@ class SyntheticGenerator:
         lang = self.rng.choice(TEXT_LANG_LABELS)
         lang_idx = _TEXT[lang]
         words = _TEXT_WORDS.get(lang, _TEXT_WORDS["en"])
-        length = self.rng.randint(MIN_BYTES, min(MAX_BYTES, 512)) // 5 + 1
         sentence_count = self.rng.randint(1, 5)
         sentences = []
         for _ in range(sentence_count):
@@ -829,6 +828,17 @@ _TEXT_WORDS: Dict[str, List[str]] = {
            "itu", "tidak", "akan", "dalam", "pada", "oleh", "sebagai",
            "data", "model", "fungsi", "nilai", "senarai", "jenis",
            "kod", "fail", "sistem", "hasil", "ralat", "masa"],
+    "zh": ["的", "是", "在", "了", "和", "有", "不", "这", "也", "那",
+           "一个", "我们", "可以", "进行", "使用", "需要", "数据", "模型",
+           "函数", "变量", "列表", "类型", "代码", "文件", "系统", "错误"],
+    "ja": ["の", "は", "を", "が", "に", "で", "と", "する", "ある",
+           "この", "その", "データ", "モデル", "関数", "値", "リスト",
+           "コード", "ファイル", "システム", "結果", "エラー", "時間",
+           "ため", "こと", "もの", "よう"],
+    "ko": ["의", "은", "는", "이", "가", "을", "를", "에", "에서",
+           "있다", "하다", "그", "이것", "데이터", "모델", "함수",
+           "값", "목록", "유형", "코드", "파일", "시스템", "결과",
+           "오류", "시간", "위한"],
 }
 
 
