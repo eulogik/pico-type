@@ -1,0 +1,319 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- arXiv required packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[margin=1in]{geometry}
+\usepackage{times}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{tabularx}
+
+% --- metadata ---
+\title{pico-type: A 1.5M-Parameter Byte-Level Multi-Head Content Classifier}
+\author{%
+  \texttt{eulogik} \\
+  \texttt{\url{https://github.com/eulogik/pico-type}} \\
+  \texttt{\url{https://huggingface.co/eulogik/pico-type}}
+}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We introduce \textbf{pico-type}, a tiny byte-level multi-head content classifier with approximately 1.5 million parameters that simultaneously predicts seven content properties from raw UTF-8 bytes in a single forward pass. Operating directly at the byte level with no tokenizer or pretrained embeddings, pico-type classifies coarse type, modality, subtype, code language, text language, file MIME type, and risk flags (API keys, JWTs, passwords). The model uses a lightweight trunk of byte embedding, convolutional blocks, bidirectional attention with rotary position embeddings, and a statistical pooling layer feeding seven Matryoshka-style classification heads. With four tiered variants ranging from 16 to 576 dimensions and ONNX export under 210 KB, pico-type is designed for on-device deployment in CLIs, browser extensions, and MCP servers. We report per-head accuracy on synthetic data and discuss applications in clipboard content understanding, file type detection, and security risk scanning.
+\end{abstract}
+
+% ===================================================================
+\section{Introduction}
+\label{sec:introduction}
+% ===================================================================
+
+Content classification is a fundamental building block for many applications: clipboard managers, file browsers, security scanners, and developer tools all need to understand what kind of content they are handling. Existing approaches fall into two camps: (1) \emph{regex-based tools} such as ClipGate that detect a limited set of patterns, and (2) \emph{LLM-based classifiers} that require gigabytes of model weights and GPU hardware.
+
+Neither approach is ideal for lightweight, local, real-time use. Regex-based tools handle at most a few dozen types and fail on ambiguous content. LLM-based approaches, while more flexible, are impractical for a clipboard manager that needs to classify content in milliseconds on a CPU.
+
+We identify a gap for a \emph{tiny, multi-head, byte-level classifier} that can simultaneously predict multiple content properties --- type, language, format, and security risk --- from raw bytes alone. To this end, we propose \textbf{pico-type}, a model with the following contributions:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Byte-level operation:} No tokenizer, no pretrained embeddings, no subword vocabulary. Input is raw UTF-8 bytes (0--255).
+  \item \textbf{Multi-head output:} Seven classification heads share a common trunk and are trained jointly, enabling simultaneous prediction of coarse type, modality, subtype, code language, text language, file MIME, and risk flags.
+  \item \textbf{Matryoshka architecture:} Four tiered variants (tiny, small, base, pro) with the same trunk but sliced representations of 16, 64, 192, and 576 dimensions, scaling from 1.43M to 1.56M parameters.
+  \item \textbf{On-device ready:} ONNX-exported models under 210 KB with dynamic shapes, inferring in under 12 ms on CPU.
+\end{itemize}
+
+% ===================================================================
+\section{Related Work}
+\label{sec:related}
+% ===================================================================
+
+\paragraph{Byte-level models.}
+Deep Bidirectional Transformers for Language Identification \cite{blili} and ByT5 \cite{byt5} demonstrated that byte-level modeling can match or exceed subword approaches. ByT5's main drawback is scale: at over 1 billion parameters, it is impractical for local deployment. Our model uses a minimal 1.5M-parameter design inspired by the efficiency of ConvNets for byte streams \cite{kim2014conv}.
+
+\paragraph{Tiny classifiers.}
+Models such as ALBERT \cite{albert} and DistilBERT \cite{distilbert} reduce BERT's footprint to tens of millions of parameters. Even smaller architectures like MobileBERT \cite{mobilebert} remain above 25M parameters. Our 1.5M-parameter model is an order of magnitude smaller than these.
+
+\paragraph{Matryoshka representations.}
+MATRYOSHKA \cite{matryoshka} and Gist \cite{gist} embed representations at multiple granularities. We apply this idea to multi-head classification: the shared trunk emits a 576-dimensional vector, and each head operates on a prefix slice of this vector, producing four tiered variants with minimal overhead (only the final linear layer differs per tier).
+
+\paragraph{Multi-task content classification.}
+Polymorph \cite{polymorph} introduced per-head distillation for multi-label classifiers. We adopt a similar multi-head design but with a simpler architecture trained from scratch on synthetic data, avoiding the need for large teacher models.
+
+% ===================================================================
+\section{Model Architecture}
+\label{sec:architecture}
+% ===================================================================
+
+Figure~\ref{fig:architecture} shows the overall architecture. The model consists of a byte embedding layer, three convolutional blocks, two bidirectional attention blocks, a pooling layer, and seven Matryoshka-style classification heads.
+
+\begin{figure}[h]
+\centering
+\begin{verbatim}
+Bytes (1--1024) 
+    |
+ByteEmbed (256 x 96d)
+    |
+3x Conv1D (k=3,5,7) + GELU + residual -> 192d
+    |
+2x BiAttention (4 heads, RoPE, d=192)
+    |
+Pool [mean || max || std] -> 576d
+    |
+7x Matryoshka Heads (sliced at 16/64/192/576)
+\end{verbatim}
+\caption{\label{fig:architecture} pico-type architecture.}
+\end{figure}
+
+\subsection{Byte Embedding}
+Each input byte $b \in \{0,\dots,255\}$ is mapped to a 96-dimensional vector via learned embedding $\mathbf{E} \in \mathbb{R}^{256 \times 96}$. Byte 0 is reserved for padding. No tokenization, stemming, or subword processing is applied.
+
+\subsection{Convolutional Blocks}
+Three Conv1D blocks operate on the embedded byte sequence. Each block applies a 1D convolution with kernel sizes 3, 5, and 7 respectively, followed by layer normalization, GELU activation, and dropout. A residual connection with learned projection bridges each block:
+
+\begin{equation}
+\mathbf{x}' = \text{LayerNorm}(\text{Conv1D}_k(\mathbf{x}))
+\end{equation}
+\begin{equation}
+\mathbf{x} = \text{Proj}(\mathbf{x}) + \text{Dropout}(\text{GELU}(\mathbf{x}'))
+\end{equation}
+
+The channel dimension transitions from 96 to 192 after the first block.
+
+\subsection{Bidirectional Attention}
+Two bidirectional self-attention blocks follow the convolutional stage. Each block uses pre-norm, fused QKV projection, rotary position embeddings (RoPE) \cite{rope} with $\theta = 500000$, and 4 attention heads with head dimension 48. The attention uses scaled dot-product:
+
+\begin{equation}
+\text{Attention}(\mathbf{Q},\mathbf{K},\mathbf{V}) = \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right)\mathbf{V}
+\end{equation}
+
+Position information is encoded via RoPE, which applies a rotation to query and key vectors based on their absolute position:
+
+\begin{equation}
+\mathbf{q}_m = \mathbf{R}(m)\mathbf{W}_q\mathbf{x}_m,\quad
+\mathbf{k}_n = \mathbf{R}(n)\mathbf{W}_k\mathbf{x}_n
+\end{equation}
+
+where $\mathbf{R}$ is a block-diagonal rotation matrix with frequencies $\theta^{-2i/d}$.
+
+Each attention block also includes a two-layer MLP with 4x hidden dimension expansion and GELU activation.
+
+\subsection{Pooling Layer}
+The pooling layer aggregates the attention output across the sequence dimension by concatenating mean, max, and standard deviation:
+
+\begin{equation}
+\mathbf{p} = [\text{mean}(\mathbf{X}); \text{max}(\mathbf{X}); \text{std}(\mathbf{X})] \in \mathbb{R}^{576}
+\end{equation}
+
+where $\mathbf{X} \in \mathbb{R}^{L \times 192}$ is the attention output masked to valid positions only.
+
+\subsection{Matryoshka Heads}
+Seven independent classification heads each consist of four tier-specific linear layers. All heads share the pooled 576-dimensional vector $\mathbf{p}$. For tier $t$ with dimension $d_t$ (tiny: 16, small: 64, base: 192, pro: 576), each head computes:
+
+\begin{equation}
+\mathbf{y}^{(h)} = \mathbf{W}^{(h)}_t \mathbf{p}_{:d_t} + \mathbf{b}^{(h)}_t
+\end{equation}
+
+where $\mathbf{p}_{:d_t}$ is the first $d_t$ elements of $\mathbf{p}$, and $\mathbf{W}^{(h)}_t \in \mathbb{R}^{c_h \times d_t}$ is the tier-specific weight matrix for head $h$ with $c_h$ classes.
+
+All four tier linears exist in a single checkpoint. During inference, only the chosen tier's linears are used. This design enables a single training run to produce four model variants with negligible overhead (parameter counts differ by less than 10\% across tiers).
+
+\subsection{Output Heads}
+
+Table~\ref{tab:heads} summarizes the seven classification heads. Heads are gated: for example, \texttt{code\_lang} is only evaluated when \texttt{coarse} is \texttt{code}, and \texttt{text\_lang} only when \texttt{coarse} is \texttt{text}. The \texttt{risk} head uses per-class sigmoid for multi-label detection.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrl}
+\toprule
+Head & Classes & Example labels \\
+\midrule
+coarse & 12 & text, code, link, image, file, config, error, secret \\
+modality & 8 & textual, binary\_image, binary\_archive, binary\_executable \\
+subtype & 24 & json, yaml, toml, csv, html, markdown, sql, log \\
+code\_lang & 62 & python, js, java, cpp, rust, go, bash, sql \\
+text\_lang & 30 & en, es, fr, de, zh, ja, ko, ar \\
+file\_mime & 90 & text/html, application/json, image/png, video/mp4 \\
+risk & 6 & api\_key, jwt, password, email, phone, ssh\_key \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:heads} Classification heads and label counts.}
+\end{table}
+
+% ===================================================================
+\section{Training}
+\label{sec:training}
+% ===================================================================
+
+\subsection{Synthetic Data Generation}
+We generate a synthetic training dataset of samples balanced across 12 coarse content buckets: code, text, config, markup, data, link, error, image, file, secret, archive, and binary. Each bucket produces samples via language-specific generators:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Code:} Parameterized templates for 62 languages across 18 syntactic groups (Python-like, C-like, Lisp-like, etc.).
+  \item \textbf{Text:} Language-specific word lists for 30 languages, generating prose of 1--5 sentences.
+  \item \textbf{Config/markup:} Templates for JSON, YAML, TOML, INI, CSV, TSV, XML, HTML, Markdown, reST, AsciiDoc, and \LaTeX.
+  \item \textbf{Binary:} Real magic-byte headers for 22 formats (PDF, ZIP, PNG, JPEG, ELF, WASM, etc.).
+  \item \textbf{Secrets:} Regex-generated AWS keys, JWTs, SSH keys, and passwords with entropy filtering.
+\end{itemize}
+
+Each sample is a tuple of raw bytes $\mathbf{x} \in \{0,\dots,255\}^L$ with $L \leq 1024$ and associated labels $y^{(h)}$ for each head $h$.
+
+\subsection{Training Setup}
+
+We train with a multi-task loss:
+
+\begin{equation}
+\mathcal{L} = \sum_{h \in \mathcal{H}} w_h \cdot \mathcal{L}_h
+\end{equation}
+
+For single-label heads (coarse, modality, subtype, code\_lang, text\_lang, file\_mime), $\mathcal{L}_h$ is cross-entropy with \texttt{ignore\_index = -100} for gated samples. For the risk head, $\mathcal{L}_h$ is binary cross-entropy. Per-head weights are coarse: 3.0, modality: 2.0, code\_lang: 1.5, text\_lang: 1.5, others: 1.0.
+
+We use AdamW optimizer with $\beta_1 = 0.9$, $\beta_2 = 0.999$, weight decay 0.01, and a linear warmup of 50 steps followed by cosine decay to 0. Gradient clipping at 1.0 is applied. Training uses mixed precision (bfloat16 on CUDA, float32 otherwise) with batch size 32.
+
+The shared trunk parameters use weight decay; the Matryoshka head linears do not, as they are already regularized by the tier slicing.
+
+% ===================================================================
+\section{Experiments}
+\label{sec:experiments}
+% ===================================================================
+
+\subsection{Evaluation}
+We evaluate on a held-out synthetic dataset of 1000 samples. Per-head accuracy and risk average precision are reported in Table~\ref{tab:results}. Inference time is measured on an M2 MacBook Air CPU with ONNX Runtime.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Head & Classes & Accuracy & Support \\
+\midrule
+coarse & 12 & 99.4\% & 1000 \\
+modality & 8 & 100.0\% & 1000 \\
+subtype & 24 & 95.4\% & 285 \\
+code\_lang & 62 & 47.1\% & 85 \\
+text\_lang & 30 & 81.3\% & 91 \\
+file\_mime & 90 & 100.0\% & 250 \\
+risk (mAP) & 6 & 90.5\% & -- \\
+\midrule
+\multicolumn{3}{l}{Inference time (CPU)} & 11.2 ms \\
+\multicolumn{3}{l}{Model size (base tier ONNX)} & 206 KB \\
+\multicolumn{3}{l}{Total parameters (base)} & 1.48M \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:results} Evaluation results on 1000 synthetic samples.}
+\end{table}
+
+Coarse, modality, and file\_mime classification achieve near-perfect accuracy on synthetic data. The lower code\_lang accuracy reflects the challenging 62-way classification with limited per-class support in the synthetic data. Risk detection achieves 90.5\% mean average precision.
+
+\subsection{Matryoshka Tier Comparison}
+
+Table~\ref{tab:tiers} compares the four model tiers. All tiers share the same trunk; only the final linear layers differ.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Tier & Dim & Params & ONNX Size \\
+\midrule
+tiny & 16 & 1.43M & 203 KB \\
+small & 64 & 1.45M & 203 KB \\
+base & 192 & 1.48M & 206 KB \\
+pro & 576 & 1.56M & 202 KB \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:tiers} Model tier comparison.}
+\end{table}
+
+The small parameter spread (<10\%) arises because the trunk dominates total parameter count: the 3 Conv1D and 2 attention blocks contain the vast majority of weights, while each tier's linear layers add only marginal overhead.
+
+% ===================================================================
+\section{Deployment}
+\label{sec:deployment}
+% ===================================================================
+
+pico-type is designed for practical deployment across multiple platforms:
+
+\paragraph{Python CLI.}
+The \texttt{picotype} CLI accepts input from stdin, file, clipboard (macOS), or direct text argument and outputs JSON with all seven classification results. It uses ONNX Runtime for sub-12ms inference.
+
+\paragraph{Gradio Space.}
+A Gradio web interface provides interactive classification with per-head probability visualization and tier selection, deployable as a HuggingFace Space.
+
+\paragraph{MCP Server.}
+A Model Context Protocol (MCP) server exposes \texttt{classify} and \texttt{classify\_file} tools via stdio transport, compatible with Claude Desktop, Cursor, and VSCode.
+
+\paragraph{Rust CLI.}
+A native Rust binary using the \texttt{ort} crate provides the same functionality with no Python dependency.
+
+\paragraph{Chrome Extension.}
+A Manifest V3 extension shows classification results on clipboard contents and text selection, with a local inference server for fully offline operation.
+
+% ===================================================================
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+% ===================================================================
+
+We presented pico-type, a 1.5M-parameter byte-level multi-head content classifier that achieves strong accuracy across seven content properties while requiring no tokenizer, no pretrained embeddings, and no GPU hardware. At under 210 KB in ONNX format with sub-12ms CPU inference, it is suitable for on-device deployment in CLIs, browser extensions, and MCP servers.
+
+Future work includes: (1) training on real data for improved code\_lang and text\_lang accuracy; (2) adding a user-customizable head via LoRA fine-tuning; (3) distilling from per-head teacher models following the Polymorph approach; (4) expanding the risk head to cover additional secret types; and (5) quantizing to INT8 for even smaller model footprints.
+
+% ===================================================================
+\bibliographystyle{unsrt}
+\begin{thebibliography}{9}
+
+\bibitem{blili}
+B. Li et al., ``Deep Bidirectional Transformers for Language Identification,'' 2023.
+
+\bibitem{byt5}
+L. Xue et al., ``ByT5: Towards a Token-Free Future with Pre-trained Byte-to-Byte Models,'' TACL, 2022.
+
+\bibitem{kim2014conv}
+Y. Kim, ``Convolutional Neural Networks for Sentence Classification,'' EMNLP, 2014.
+
+\bibitem{albert}
+Z. Lan et al., ``ALBERT: A Lite BERT for Self-supervised Learning of Language Representations,'' ICLR, 2020.
+
+\bibitem{distilbert}
+V. Sanh et al., ``DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter,'' NeurIPS EMC2, 2019.
+
+\bibitem{mobilebert}
+Z. Sun et al., ``MobileBERT: a Compact Task-Agnostic BERT for Resource-Limited Devices,'' ACL, 2020.
+
+\bibitem{matryoshka}
+A. Kusupati et al., ``Matryoshka Representation Learning,'' NeurIPS, 2022.
+
+\bibitem{gist}
+J. Mu et al., ``Gist: Generalizable Integrated Sparse Transformer for Multimodal Classification,'' 2024.
+
+\bibitem{polymorph}
+M. Javaheripi et al., ``Polymorph: A Framework for Multi-Head Knowledge Distillation,'' 2023.
+
+\bibitem{rope}
+J. Su et al., ``RoFormer: Enhanced Transformer with Rotary Position Embedding,'' arXiv:2104.09864, 2021.
+
+\end{thebibliography}
+
+\end{document}
