@@ -187,6 +187,19 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 
 ## 7. What's done ✅
 
+### Training, Deployment & Publishing
+- **Training**: 1700 steps completed. eval_loss improved 6.33 (step 0) → 2.72 (step 800) → **1.97 (step 1700, best.pt)**. Subtype/code_lang accuracy dipped (overfitting), text_lang/risk improved.
+- **ONNX export**: All 4 tiers re-exported from step 1700 best.pt (~200KB each, FP32, opset 18).
+- **HF Model**: `huggingface.co/eulogik/pico-type` — ONNX models + model card (updated after each training run).
+- **HF Space**: `huggingface.co/spaces/eulogik/pico-type` — Gradio app fixed (self-contained, downloads ONNX from model repo at startup).
+- **PyPI**: `pico-type` v0.1.0 published. v0.1.1 built (README fix) but not uploaded (file already exists error — version mismatch).
+- **GitHub**: `github.com/eulogik/pico-type` — `main` branch + `v0.1` tag. CI passes (pytest + ruff).
+
+### Known Training Issues
+- **MPS OOM**: batch_size 64 causes MPS OOM (19+ GiB allocated). Fixed by reducing to batch_size=16 and `train_tiers=('base',)`.
+- **MPS graph cache**: Writes to system `/tmp`, was filling disk when free space <1GB. ~9GB now available, OK.
+- **Overfitting**: code_lang accuracy dropped 54%→42%, subtype 98%→94% from step 800 to 1700. May need more data diversity or lower LR.
+
 ### `model/pico_type/labels.py`
 - All 7 vocabularies (sizes match plan exactly, asserted at import time)
 - `decode_output(logits, tier, undetected_threshold, risk_threshold)` — respects all gating rules, applies UNDETECTED threshold
@@ -251,9 +264,9 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 ## 8. What's next (from plan §3–§6, in order)
 
 | # | File | What it does | Status |
-|---|---|---|---|
+|---|---|---|---|---|
 | 1 | `data.py` | Synthetic generator + dataset for multi-head training. 11 buckets, all 12 coarse classes, code/word templates for all 62/30 langs. | ✅ **done** |
-| 2 | `train.py` | Multi-task trainer. AdamW + cosine, bf16, per-head loss weighting, gradient clipping, checkpoint save/load. | ✅ **done** |
+| 2 | `train.py` | Multi-task trainer. AdamW + cosine, bf16, per-head loss weighting, gradient clipping, checkpoint save/load. resume_from field for continuing training. | ✅ **done** |
 | 3 | `eval.py` | Eval harness: per-head accuracy/PRF1, confusion matrix, risk AP, inference timing. CLI entry point. | ✅ **done** |
 | 4 | `distill.py` | KD from per-head teachers (deberta-v3-small, CodeBERTa-lang-id, xlm-roberta-lang-detect). T=2.0, α=0.7. | ✅ **done** |
 | 5 | `export.py` | ONNX export (opset 18), int8, tract, gguf. | ✅ **done** |
@@ -264,11 +277,13 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 | 10 | `MODEL_CARD.md` | HuggingFace model card with eval results | ✅ **done** |
 | 11 | `README.md` | Overhauled with badges, perf table, deploy links | ✅ **done** |
 | 12 | `spaces/requirements.txt` | Dependencies for HF Space deployment | ✅ **done** |
-| 13 | `spaces/picotype/` | Gradio Space + HF MCP registration. | pending |
-| 14 | `crates/picotype/` | Rust CLI w/ ONNX runtime. | pending |
-| 15 | `crates/picotype-mcp/` | Rust MCP server (stdio + Streamable HTTP). | pending |
-| 16 | `extensions/*` | Chrome MV3, Raycast, Alfred, VSCode. | pending |
-| 17 | `paper/` | arXiv LaTeX. | pending |
+| 13 | HF Model + Space | Published to huggingface.co/eulogik/pico-type (model) and /spaces/eulogik/pico-type (Space) | ✅ **done** |
+| 14 | PyPI publish | pico-type v0.1.0 on PyPI (README not rendering; v0.1.1 built) | ✅ **done** |
+| 15 | `crates/picotype/` | Rust CLI w/ ONNX runtime. | ✅ **done** |
+| 16 | `crates/picotype-mcp/` | Rust MCP server (stdio + Streamable HTTP). | pending |
+| 17 | `extensions/*` | Chrome MV3 scaffolded, Raycast, Alfred, VSCode. | pending |
+| 18 | `paper/` | arXiv LaTeX scaffolded (`paper/main.tex`). | pending |
+| 19 | Training | 1700 steps, best eval_loss 1.97, MPS (batch=16, base tier). Continue with `resume_from=checkpoints/best.pt` | in progress |
 
 ---
 
