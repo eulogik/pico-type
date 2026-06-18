@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import gradio as gr
 import numpy as np
@@ -45,37 +44,46 @@ TEXT_LANG_LABELS = [
     "en", "es", "fr", "de", "it", "pt", "nl", "sv", "no", "da",
     "fi", "pl", "cs", "sk", "hu", "ro", "el", "tr",
     "ru", "uk", "bg", "sr", "hr",
-    "zh", "ja", "ko", "ar", "hi", "th", "vi",
+    "zh", "ja", "ko", "vi", "th", "id", "ms",
 ]
 FILE_MIME_LABELS = [
-    "text/html", "application/json", "application/xml", "text/yaml",
-    "text/toml", "text/ini", "text/csv", "text/tsv", "text/markdown",
-    "text/plain", "text/x-python", "text/x-java", "text/x-c",
-    "text/x-cpp", "text/x-rust", "text/x-go", "text/x-ruby",
-    "text/x-php", "text/x-javascript", "text/x-typescript",
-    "text/x-shellscript", "text/x-sql", "text/x-dockerfile",
-    "text/x-makefile", "text/x-yaml", "text/x-diff", "text/x-log",
-    "text/x-env", "text/x-tex", "text/x-asciidoc", "text/x-rst",
-    "application/pdf", "application/zip", "application/gzip",
-    "application/x-tar", "application/x-7z-compressed", "application/x-rar-compressed",
-    "application/x-bzip2", "application/x-xz", "application/x-iso9660-image",
-    "application/vnd.sqlite3", "application/x-parquet",
-    "application/x-elf", "application/x-mach-binary",
-    "application/x-pe-executable", "application/java-archive",
-    "application/wasm", "application/vnd.debian.binary-package",
-    "application/x-apple-diskimage", "application/x-msdownload",
-    "application/x-sharedlib", "application/x-object",
-    "application/x-pcap", "application/x-hdf5", "application/x-netcdf",
-    "application/xml", "application/atom+xml", "application/rss+xml",
-    "application/rdf+xml", "application/xhtml+xml",
-    "image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp",
-    "image/tiff", "image/svg+xml", "image/x-icon", "image/avif",
-    "audio/mpeg", "audio/wav", "audio/ogg", "audio/flac",
-    "audio/aac", "audio/mp4", "audio/webm",
-    "video/mp4", "video/webm", "video/ogg", "video/x-msvideo",
-    "video/quicktime", "video/x-matroska",
+    "application/pdf", "application/zip", "application/gzip", "application/x-tar",
+    "application/x-7z-compressed", "application/x-rar-compressed", "application/x-bzip2",
+    "application/x-xz", "application/json", "application/xml", "application/yaml",
+    "application/octet-stream", "application/x-executable", "application/x-mach-binary",
+    "application/x-elf", "application/x-deb", "application/x-rpm",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.ms-excel", "application/vnd.ms-powerpoint",
+    "application/msword", "application/rtf", "application/epub+zip",
+    "application/x-ndjson",
+    "text/plain", "text/csv", "text/html", "text/xml", "text/markdown",
+    "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml",
+    "image/bmp", "image/tiff", "image/heic", "image/heif", "image/avif",
+    "image/x-icon", "image/vnd.adobe.photoshop",
+    "video/mp4", "video/webm", "video/x-matroska", "video/quicktime",
+    "video/x-msvideo", "video/x-flv", "video/x-mpeg",
+    "audio/mpeg", "audio/ogg", "audio/wav", "audio/flac", "audio/aac",
+    "audio/x-m4a", "audio/webm", "audio/midi",
     "font/ttf", "font/otf", "font/woff", "font/woff2",
-    "application/octet-stream", "application/unknown",
+    "application/x-sqlite3", "application/x-parquet",
+    "application/x-protobuf", "application/x-flatbuffers",
+    "application/x-cpio", "application/x-iso9660-image",
+    "application/vnd.android.package-archive", "application/x-jar",
+    "application/x-python-bytecode", "application/x-archive",
+    "application/pgp-encrypted", "application/pgp-signature",
+    "application/x-x509-ca-cert", "application/x-pem-file",
+    "application/vnd.tcpdump.pcap",
+    "application/java-vm",
+    "application/x-matlab-data",
+    "application/x-shockwave-flash",
+    "application/x-font-ttf", "application/x-font-otf",
+    "application/wasm", "application/x-ruby",
+    "application/javascript", "application/ecmascript",
+    "application/x-bittorrent", "application/x-dvi",
+    "chemical/x-mdl-sdfile",
+    "application/x-lzma",
 ]
 RISK_LABELS = ["api_key", "jwt", "ssh_key", "password", "email", "phone"]
 
@@ -132,7 +140,7 @@ def classify(text: str, tier: str) -> dict:
     seq_len = len(ids)
     padded = np.zeros(1024, dtype=np.int64)
     padded[:seq_len] = ids
-    mask = np.zeros(1024, dtype=np.bool_)
+    mask = np.zeros(1024, dtype=bool)
     mask[:seq_len] = True
     outs = session.run(None, {"input_ids": padded[None, :], "attention_mask": mask[None, :]})
     result = {}
