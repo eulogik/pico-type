@@ -48,7 +48,7 @@ TEXT_LANG_LABELS = [
     "en", "es", "fr", "de", "it", "pt", "nl", "sv", "no", "da",
     "fi", "pl", "cs", "sk", "hu", "ro", "el", "tr",
     "ru", "uk", "bg", "sr", "hr",
-    "zh", "ja", "ko", "vi", "th", "id", "ms",
+    "zh", "ja", "ko", "vi", "th", "id", "hi",
 ]
 
 assert len(TEXT_LANG_LABELS) == 30, f"expected 30 text langs, got {len(TEXT_LANG_LABELS)}"

@@ -49,13 +49,13 @@ Classifies any content into **7 categories** from raw bytes: coarse type, modali
 |------|---------|----------|
 | coarse | 12 | **100%** |
 | modality | 8 | **100%** |
-| subtype | 24 | **98.4%** |
-| code_lang | 62 | **53.9%** |
+| subtype | 24 | **98.8%** |
+| code_lang | 62 | **61.3%** |
 | text_lang | 30 | **100%** |
 | file_mime | 90 | **100%** |
 | risk (mAP) | 6 | **100%** |
 
-_1000 evaluation samples, 9000 training steps (5000 synthetic + 4000 real-code fine-tune), base tier, ~5.6ms inference._
+_1000 evaluation samples, base tier, ~5.6ms inference. Hindi (hi) added as a text language._
 
 ## 🚀 Quick Start
 

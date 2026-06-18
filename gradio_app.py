@@ -44,7 +44,7 @@ TEXT_LANG_LABELS = [
     "en", "es", "fr", "de", "it", "pt", "nl", "sv", "no", "da",
     "fi", "pl", "cs", "sk", "hu", "ro", "el", "tr",
     "ru", "uk", "bg", "sr", "hr",
-    "zh", "ja", "ko", "vi", "th", "id", "ms",
+    "zh", "ja", "ko", "vi", "th", "id", "hi",
 ]
 FILE_MIME_LABELS = [
     "application/pdf", "application/zip", "application/gzip", "application/x-tar",
@@ -98,16 +98,25 @@ LABEL_TABLES = {
 }
 
 MODEL_DIR = "."
+ONNX_VERSION = "1"  # bump to force re-download (e.g., after model update)
 
 
 def _ensure_onnx(tier: str):
     path = os.path.join(MODEL_DIR, f"picotype_{tier}.onnx")
-    if not os.path.exists(path):
+    data_path = os.path.join(MODEL_DIR, f"picotype_{tier}.onnx.data")
+    version_file = os.path.join(MODEL_DIR, ".onnx_version")
+    cached_version = ""
+    if os.path.exists(version_file):
+        with open(version_file) as f:
+            cached_version = f.read().strip()
+    if not os.path.exists(path) or cached_version != ONNX_VERSION:
         from huggingface_hub import hf_hub_download
         for t in ["tiny", "small", "base", "pro"]:
             fname = f"picotype_{t}.onnx"
-            hf_hub_download("eulogik/pico-type", filename=fname, local_dir=MODEL_DIR)
-            hf_hub_download("eulogik/pico-type", filename=f"{fname}.data", local_dir=MODEL_DIR)
+            hf_hub_download("eulogik/pico-type", filename=fname, local_dir=MODEL_DIR, force_download=True)
+            hf_hub_download("eulogik/pico-type", filename=f"{fname}.data", local_dir=MODEL_DIR, force_download=True)
+        with open(version_file, "w") as f:
+            f.write(ONNX_VERSION)
     return path
 
 
