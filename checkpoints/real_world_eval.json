@@ -1,0 +1,128 @@
+[
+  {
+    "text": "def factorial(n): return 1 if n <= 1 else n * factorial(n-1)",
+    "expected": "code",
+    "predicted": "code",
+    "correct": true,
+    "code_lang": "vb",
+    "text_lang": null,
+    "confidence": 0.621
+  },
+  {
+    "text": "function greet(name) { return \"Hello, \" + name; }",
+    "expected": "code",
+    "predicted": "code",
+    "correct": true,
+    "code_lang": "undetected",
+    "text_lang": null,
+    "confidence": 0.918
+  },
+  {
+    "text": "SELECT * FROM users WHERE id = 1;",
+    "expected": "data",
+    "predicted": "text",
+    "correct": false,
+    "code_lang": null,
+    "text_lang": "zh",
+    "confidence": 0.731
+  },
+  {
+    "text": "<!DOCTYPE html><html><body><p>Hello</p></body></html>",
+    "expected": "markup",
+    "predicted": "code",
+    "correct": false,
+    "code_lang": "undetected",
+    "text_lang": null,
+    "confidence": 0.75
+  },
+  {
+    "text": "{\"name\": \"John\", \"age\": 30, \"city\": \"New York\"}",
+    "expected": "config",
+    "predicted": "config",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 1.0
+  },
+  {
+    "text": "The quick brown fox jumps over the lazy dog",
+    "expected": "text",
+    "predicted": "text",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": "en",
+    "confidence": 0.963
+  },
+  {
+    "text": "https://github.com/eulogik/pico-type",
+    "expected": "link",
+    "predicted": "link",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 0.968
+  },
+  {
+    "text": "Traceback (most recent call last):\n  File \"test.py\", line 5,",
+    "expected": "error",
+    "predicted": "text",
+    "correct": false,
+    "code_lang": null,
+    "text_lang": "es",
+    "confidence": 0.761
+  },
+  {
+    "text": "password = \"supersecret123!\"",
+    "expected": "secret",
+    "predicted": "secret",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 1.0
+  },
+  {
+    "text": "export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE",
+    "expected": "secret",
+    "predicted": "secret",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 1.0
+  },
+  {
+    "text": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDA== user@host",
+    "expected": "secret",
+    "predicted": "secret",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 1.0
+  },
+  {
+    "text": "PK\u0003\u0004\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+    "expected": "archive",
+    "predicted": "archive",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 1.0
+  },
+  {
+    "text": "\u0089PNG\r\n\u001a\n",
+    "expected": "image",
+    "predicted": "config",
+    "correct": false,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 0.843
+  },
+  {
+    "text": "#!/bin/bash\necho \"Hello, World!\"",
+    "expected": "data",
+    "predicted": "data",
+    "correct": true,
+    "code_lang": null,
+    "text_lang": null,
+    "confidence": 0.512
+  }
+]

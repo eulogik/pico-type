@@ -1,8 +1,26 @@
+---
+license: apache-2.0
+language:
+- en
+- multilingual
+tags:
+- byte-level
+- content-classification
+- onnx
+- edge-ai
+- matryoshka
+pipeline_tag: text-classification
+library_name: generic
+inference:
+  parameters:
+    provider: CPUExecutionProvider
+---
+
 <div align="center">
 
 # pico-type 🔍
 
-**A tiny byte-level multi-head content classifier** — ~1.5M params, ~200KB ONNX, <12ms inference.
+**A tiny byte-level multi-head content classifier** — ~1.5M params, ~209KB ONNX, <6ms inference.
 
 Classifies any content into **7 categories** from raw bytes: coarse type, modality, subtype, code language, text language, file MIME, and risk flags.
 
@@ -31,13 +49,13 @@ Classifies any content into **7 categories** from raw bytes: coarse type, modali
 |------|---------|----------|
 | coarse | 12 | **100%** |
 | modality | 8 | **100%** |
-| subtype | 24 | **93.8%** |
-| code_lang | 62 | **41.7%** |
-| text_lang | 30 | **94.3%** |
+| subtype | 24 | **98.4%** |
+| code_lang | 62 | **53.9%** |
+| text_lang | 30 | **100%** |
 | file_mime | 90 | **100%** |
 | risk (mAP) | 6 | **100%** |
 
-_500 evaluation samples, 1700 training steps, base tier, ~13ms inference._
+_1000 evaluation samples, 9000 training steps (5000 synthetic + 4000 real-code fine-tune), base tier, ~5.6ms inference._
 
 ## 🚀 Quick Start
 
@@ -82,10 +100,10 @@ Total parameters: **1.43M** (tiny) / **1.45M** (small) / **1.48M** (base) / **1.
 
 | Tier | Dim | Params | ONNX Size |
 |------|-----|--------|-----------|
-| tiny | 16 | 1.43M | 203 KB |
-| small | 64 | 1.45M | 203 KB |
-| base | 192 | 1.48M | 206 KB |
-| pro | 576 | 1.56M | 202 KB |
+| tiny | 16 | 1.43M | 207 KB |
+| small | 64 | 1.45M | 207 KB |
+| base | 192 | 1.48M | 209 KB |
+| pro | 576 | 1.56M | 206 KB |
 
 All tiers share the same trunk; only the final linear layers differ.
 

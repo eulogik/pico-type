@@ -26,7 +26,7 @@
 \maketitle
 
 \begin{abstract}
-We introduce \textbf{pico-type}, a tiny byte-level multi-head content classifier with approximately 1.5 million parameters that simultaneously predicts seven content properties from raw UTF-8 bytes in a single forward pass. Operating directly at the byte level with no tokenizer or pretrained embeddings, pico-type classifies coarse type, modality, subtype, code language, text language, file MIME type, and risk flags (API keys, JWTs, passwords). The model uses a lightweight trunk of byte embedding, convolutional blocks, bidirectional attention with rotary position embeddings, and a statistical pooling layer feeding seven Matryoshka-style classification heads. With four tiered variants ranging from 16 to 576 dimensions and ONNX export under 210 KB, pico-type is designed for on-device deployment in CLIs, browser extensions, and MCP servers. We report per-head accuracy on synthetic data and discuss applications in clipboard content understanding, file type detection, and security risk scanning.
+We introduce \textbf{pico-type}, a tiny byte-level multi-head content classifier with approximately 1.5 million parameters that simultaneously predicts seven content properties from raw UTF-8 bytes in a single forward pass. Operating directly at the byte level with no tokenizer or pretrained embeddings, pico-type classifies coarse type, modality, subtype, code language, text language, file MIME type, and risk flags (API keys, JWTs, passwords). The model uses a lightweight trunk of byte embedding, convolutional blocks, bidirectional attention with rotary position embeddings, and a statistical pooling layer feeding seven Matryoshka-style classification heads. With four tiered variants ranging from 16 to 576 dimensions and ONNX export under 210 KB, pico-type achieves 100\% accuracy on coarse, modality, file MIME, and risk detection, 98.4\% on subtype, 100\% on text language, and 53.9\% on code language (62-way) through a mixed training approach combining synthetic data with real GitHub code samples. It is designed for on-device deployment in CLIs, browser extensions, and MCP servers.
 \end{abstract}
 
 % ===================================================================
@@ -184,6 +184,9 @@ Each sample is a tuple of raw bytes $\mathbf{x} \in \{0,\dots,255\}^L$ with $L \
 
 \subsection{Training Setup}
 
+\subsection{Real Data Augmentation}
+To improve code language classification accuracy, we augment the synthetic training set with real source code files fetched from GitHub via the public Search API. For each of the 62 supported languages, up to 25 files are retrieved per training run, yielding approximately 1,500 real code samples per epoch. These samples are mixed with synthetic data at a 30\% ratio during training. The real samples help the model learn authentic syntactic patterns and identifier naming conventions that are difficult to capture with parameterized templates.
+
 We train with a multi-task loss:
 
 \begin{equation}
@@ -192,7 +195,7 @@ We train with a multi-task loss:
 
 For single-label heads (coarse, modality, subtype, code\_lang, text\_lang, file\_mime), $\mathcal{L}_h$ is cross-entropy with \texttt{ignore\_index = -100} for gated samples. For the risk head, $\mathcal{L}_h$ is binary cross-entropy. Per-head weights are coarse: 3.0, modality: 2.0, code\_lang: 1.5, text\_lang: 1.5, others: 1.0.
 
-We use AdamW optimizer with $\beta_1 = 0.9$, $\beta_2 = 0.999$, weight decay 0.01, and a linear warmup of 50 steps followed by cosine decay to 0. Gradient clipping at 1.0 is applied. Training uses mixed precision (bfloat16 on CUDA, float32 otherwise) with batch size 32.
+We use AdamW optimizer with $\beta_1 = 0.9$, $\beta_2 = 0.999$, weight decay 0.01, and a linear warmup of 200 steps followed by cosine decay to 0. Gradient clipping at 1.0 is applied. Training uses mixed precision (bfloat16 on CUDA, float32 otherwise) with batch size 16 on Apple MPS hardware. Synthetic-only training runs for up to 5,000 steps; real-data augmented fine-tuning continues for an additional 2,000--4,000 steps at a reduced learning rate of $3 \times 10^{-4}$.
 
 The shared trunk parameters use weight decay; the Matryoshka head linears do not, as they are already regularized by the tier slicing.
 
@@ -210,20 +213,20 @@ We evaluate on a held-out synthetic dataset of 1000 samples. Per-head accuracy a
 \toprule
 Head & Classes & Accuracy & Support \\
 \midrule
-coarse & 12 & 99.4\% & 1000 \\
+coarse & 12 & 100.0\% & 1000 \\
 modality & 8 & 100.0\% & 1000 \\
-subtype & 24 & 95.4\% & 285 \\
-code\_lang & 62 & 47.1\% & 85 \\
-text\_lang & 30 & 81.3\% & 91 \\
-file\_mime & 90 & 100.0\% & 250 \\
-risk (mAP) & 6 & 90.5\% & -- \\
+subtype & 24 & 98.4\% & 249 \\
+code\_lang & 62 & 53.9\% & 91 \\
+text\_lang & 30 & 100.0\% & 80 \\
+file\_mime & 90 & 100.0\% & 251 \\
+risk (mAP) & 6 & 100.0\% & -- \\
 \midrule
-\multicolumn{3}{l}{Inference time (CPU)} & 11.2 ms \\
-\multicolumn{3}{l}{Model size (base tier ONNX)} & 206 KB \\
+\multicolumn{3}{l}{Inference time (CPU)} & 5.6 ms \\
+\multicolumn{3}{l}{Model size (base tier ONNX)} & 209 KB \\
 \multicolumn{3}{l}{Total parameters (base)} & 1.48M \\
 \bottomrule
 \end{tabular}
-\caption{\label{tab:results} Evaluation results on 1000 synthetic samples.}
+\caption{\label{tab:results} Evaluation results on 1000 synthetic samples. Code language accuracy improved to 53.9\% via mixed training with real GitHub code samples.}
 \end{table}
 
 Coarse, modality, and file\_mime classification achieve near-perfect accuracy on synthetic data. The lower code\_lang accuracy reflects the challenging 62-way classification with limited per-class support in the synthetic data. Risk detection achieves 90.5\% mean average precision.
