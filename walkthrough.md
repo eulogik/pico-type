@@ -16,15 +16,17 @@ Existing clipboard tools are regex-only (ClipGate, 13 types) or LLM-powered (nee
 ### Deliverables
 - HuggingFace model (Apache-2.0) with 4 Matryoshka tiers ✅ (ONNX exported)
 - Python CLI (`picotype`) ✅
-- Gradio Space app ✅ (`gradio_app.py`)
-- MCP server ✅ (`model/pico_type/mcp_server.py`)
+- Gradio Space app ✅ (`gradio_app.py` — label lists fixed Jun 18)
+- Python MCP server ✅ (`model/pico_type/mcp_server.py`)
+- Rust MCP server ✅ (`crates/picotype-mcp/`)
 - pytest smoke tests ✅ (`tests/test_smoke.py`)
 - HF model card ✅ (`MODEL_CARD.md`)
 - Badge'd README ✅
-- Rust CLI (`crates/picotype/`) — pending
-- Rust MCP server (`crates/picotype-mcp/`) — pending
-- Browser extension, Raycast/Alfred/VSCode extensions — pending
-- arXiv paper — pending
+- Rust CLI (`crates/picotype/`) ✅
+- Chrome extension scaffold + icons ✅ (MV3)
+- PyPI package `pico-type` v0.1.3 ✅ (`pip install pico-type`)
+- arXiv paper — in progress (draft with final numbers)
+- Raycast/Alfred/VSCode extensions — pending
 
 ---
 
@@ -188,17 +190,28 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 ## 7. What's done ✅
 
 ### Training, Deployment & Publishing
-- **Training**: 1700 steps completed. eval_loss improved 6.33 (step 0) → 2.72 (step 800) → **1.97 (step 1700, best.pt)**. Subtype/code_lang accuracy dipped (overfitting), text_lang/risk improved.
-- **ONNX export**: All 4 tiers re-exported from step 1700 best.pt (~200KB each, FP32, opset 18).
-- **HF Model**: `huggingface.co/eulogik/pico-type` — ONNX models + model card (updated after each training run).
-- **HF Space**: `huggingface.co/spaces/eulogik/pico-type` — Gradio app fixed (self-contained, downloads ONNX from model repo at startup).
-- **PyPI**: `pico-type` v0.1.0 published. v0.1.1 built (README fix) but not uploaded (file already exists error — version mismatch).
-- **GitHub**: `github.com/eulogik/pico-type` — `main` branch + `v0.1` tag. CI passes (pytest + ruff).
+- **Training**: 1700 synthetic steps → 5000 synthetic steps (eval_loss 1.61) → **4000 real-data fine-tuning steps** (2 rounds: 10 samples/lang, then 25 samples/lang from GitHub). Eval loss **1.9848** after final round. best.pt updated.
+- **Eval results (1000 samples, base tier, 5.6ms)**:
+  - coarse 100%, modality 100%, subtype **98.4%**, code_lang **53.9%**, text_lang **100%**, file_mime 100%, risk mAP 100%
+  - code_lang improved **+9.9%** (43.96% → 53.85%) via real GitHub code samples
+- **ONNX export**: All 4 tiers re-exported from best.pt (~207-209 KB on disk with external data, opset 18).
+- **HF Model**: `huggingface.co/eulogik/pico-type` — ONNX models at root level + checkpoints/ directory, model card, paper scaffold.
+- **HF Space**: `huggingface.co/spaces/eulogik/pico-type` — Gradio app **label lists fixed** (Jun 18 2026). Root cause: `gradio_app.py` had different label ordering than `labels.py` (text_lang had `"ar","hi"` instead of `"id","ms"`; file_mime was completely different set). Also fixed `np.bool_`→`bool` for NumPy 2.x compat (Space runs Python 3.13).
+- **PyPI**: `pico-type` v0.1.3 published at https://pypi.org/project/pico-type/0.1.3/.
+- **GitHub**: `github.com/eulogik/pico-type` — `main` branch, CI passes.
 
 ### Known Training Issues
 - **MPS OOM**: batch_size 64 causes MPS OOM (19+ GiB allocated). Fixed by reducing to batch_size=16 and `train_tiers=('base',)`.
 - **MPS graph cache**: Writes to system `/tmp`, was filling disk when free space <1GB. ~9GB now available, OK.
-- **Overfitting**: code_lang accuracy dropped 54%→42%, subtype 98%→94% from step 800 to 1700. May need more data diversity or lower LR.
+- **code_lang stuck at ~44% on synthetic-only**: Real-data fine-tuning pushed it to **53.9%** with 25 samples/lang from GitHub. Further improvement likely needs more diverse real data (error messages, SQL, HTML, binary headers).
+
+### HF Space fix (Jun 18)
+- **Root cause**: `gradio_app.py` had different label list ordering than `model/pico_type/labels.py`. Model outputs numeric logits at specific indices, but Space app decoded them with wrong label lists:
+  - `text_lang`: had `"ar","hi"` at positions 26-27 instead of `"id","ms"`
+  - `file_mime`: completely different set and ordering (started with `"text/html"` instead of `"application/pdf"`)
+- **Also fixed**: `np.bool_`→`bool` (removed in NumPy 2.x, needed for Space's Python 3.13)
+- **Also fixed**: Removed unused `pathlib` import, removed `numpy<2` pin from Space requirements
+- New ONNX files copied to model repo root level (Space downloads from root, not `checkpoints/` directory)
 
 ### `model/pico_type/labels.py`
 - All 7 vocabularies (sizes match plan exactly, asserted at import time)
@@ -233,6 +246,52 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 - `label_counts()` returns class distribution for debugging
 - `smoke_test()` generates 500 samples and prints coverage per head
 
+### `crates/picotype-mcp/` (new)
+- Rust MCP server crate implementing JSON-RPC 2.0 over stdio transport
+- Same protocol as Python MCP server: `initialize` handshake + `tools/call` for `classify` and `classify_file`
+- Uses `ort` (ONNX Runtime) for inference, respects `PICOTYPE_MODEL_DIR` and `PICOTYPE_TIER` env vars
+- Tested and working: builds in ~30s, passes `initialize` and `tools/call` requests
+
+### `extensions/chrome/icons/` (new)
+- 16x16, 48x48, 128x128 PNG icons with indigo rounded-square design and "P" letter
+- Resolves missing icons referenced in `manifest.json`
+
+### Training update (synthetic)
+- Continued training from scratch (no prior checkpoints available) for 5000 steps
+- Config: lr=5e-4, warmup=200, batch_size=16 (MPS), train_size=20000, eval_size=500
+- Eval loss improved: 31.97 → 28.52 (step 0) → 1.97 (step 2500) → **1.61 (step 5000)**
+- Per-head results (step 5000, synthetic-only): coarse=100%, modality=100%, subtype=98%, code_lang=44%, text_lang=97.5%, file_mime=100%, risk=100%
+- code_lang stuck at ~44% — synthetic code templates too limited; confirmed need for real data
+- Saved best.pt, final.pt, step_{500,1000,...,4500}.pt in checkpoints/
+
+### Real-data fine-tuning
+- `model/pico_type/realdata.py` — fetches real source code from GitHub Search API per language
+- `model/pico_type/train_real.py` — mixed real+synthetic training (30% real), lr=3e-4, batch=16
+- **Round 1** (10/lang, 2000 steps): code_lang 44%→**43.96%** (marginal)
+- **Round 2** (25/lang, ~1500 samples, 2000 steps): code_lang **43.96%→53.85%** ✅
+- Final eval (1000 samples, best.pt): coarse=100%, modality=100%, subtype=98.4%, code_lang=53.9%, text_lang=100%, file_mime=100%, risk=100%, inference=5.6ms
+- 5 languages with 0 GitHub results: fsharp, lisp, vim, fortran, vb (unsupported search names)
+
+### Real-data fine-tuning (new)
+- `model/pico_type/realdata.py` — fetches real source code from GitHub Search API per language, builds mixed datasets
+- `model/pico_type/train_real.py` — fine-tuning loop mixing real code + synthetic data (30% ratio), lower LR (3e-4)
+- **Round 1**: 10 samples/language (423 total), 2000 steps — code_lang 41.7%→**43.96%**
+- **Round 2**: 25 samples/language (~1500 total), 2000 steps — code_lang **43.96%→53.85%**
+- GitHub token used, 0.5s delay/request to respect rate limits
+- 5 languages returned 0 samples: fsharp, lisp, vim, fortran, vb (unsupported GitHub search names)
+
+### Real-world eval
+- 14 hand-curated samples across 10 coarse categories
+- Overall accuracy: 71.4% (10/14)
+- Correct: python, js, JSON, text, link, password, AWS key, SSH key, ZIP, bash
+- Wrong: SQL (→text), HTML (→code), error trace (→text), PNG header (→config)
+- Confirms synthetic data gap: SQL, HTML, errors, and binary headers need real training data
+
+### PyPI publish
+- Bumped version from 0.1.0→0.1.2 (0.1.1 already existed)
+- Built and uploaded to PyPI: `pico-type==0.1.2` at https://pypi.org/project/pico-type/0.1.2/
+- **v0.1.3**: Published with best.pt (53.9% code_lang), updated eval results, paper scaffold
+
 ### `model/pico_type/__init__.py`
 - Re-exports the public API (already present in the repo when we recovered)
 
@@ -264,7 +323,7 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 ## 8. What's next (from plan §3–§6, in order)
 
 | # | File | What it does | Status |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | 1 | `data.py` | Synthetic generator + dataset for multi-head training. 11 buckets, all 12 coarse classes, code/word templates for all 62/30 langs. | ✅ **done** |
 | 2 | `train.py` | Multi-task trainer. AdamW + cosine, bf16, per-head loss weighting, gradient clipping, checkpoint save/load. resume_from field for continuing training. | ✅ **done** |
 | 3 | `eval.py` | Eval harness: per-head accuracy/PRF1, confusion matrix, risk AP, inference timing. CLI entry point. | ✅ **done** |
@@ -278,12 +337,17 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 | 11 | `README.md` | Overhauled with badges, perf table, deploy links | ✅ **done** |
 | 12 | `spaces/requirements.txt` | Dependencies for HF Space deployment | ✅ **done** |
 | 13 | HF Model + Space | Published to huggingface.co/eulogik/pico-type (model) and /spaces/eulogik/pico-type (Space) | ✅ **done** |
-| 14 | PyPI publish | pico-type v0.1.0 on PyPI (README not rendering; v0.1.1 built) | ✅ **done** |
+| 14 | PyPI publish | pico-type v0.1.0→v0.1.2→v0.1.3 on PyPI | ✅ **done** |
 | 15 | `crates/picotype/` | Rust CLI w/ ONNX runtime. | ✅ **done** |
-| 16 | `crates/picotype-mcp/` | Rust MCP server (stdio + Streamable HTTP). | pending |
-| 17 | `extensions/*` | Chrome MV3 scaffolded, Raycast, Alfred, VSCode. | pending |
-| 18 | `paper/` | arXiv LaTeX scaffolded (`paper/main.tex`). | pending |
-| 19 | Training | 1700 steps, best eval_loss 1.97, MPS (batch=16, base tier). Continue with `resume_from=checkpoints/best.pt` | in progress |
+| 16 | `crates/picotype-mcp/` | Rust MCP server (stdio). | ✅ **done** |
+| 17 | `extensions/chrome/` | Chrome MV3 scaffolded + icons created. Raycast, Alfred, VSCode — pending. | partial |
+| 18 | `paper/` | arXiv LaTeX scaffolded, final numbers updated (`paper/main.tex`). | in progress |
+| 19 | Training | 1700 → **5000 synthetic steps** (loss 1.61) → **4000 real-data steps** (25/lang, code_lang 53.9%). | ✅ **done** |
+| 20 | ONNX re-export | All 4 tiers re-exported from best.pt (post real-data fine-tune). | ✅ **done** |
+| 21 | Real-data pipeline | `realdata.py` + `train_real.py` — GitHub code fetcher, mixed dataset, fine-tuning loop. | ✅ **done** |
+| 22 | HF Space fix | Label lists synced to `labels.py`, `np.bool_`→`bool` for NumPy 2, requirements updated. | ✅ **done** |
+| 23 | INT8 quantization | Shape inference issue with multi-head architecture — needs graph fix. | pending |
+| 24 | HuggingFace Hub push | ONNX, best.pt, eval results, paper, README all pushed. | ✅ **done** |
 
 ---
 
