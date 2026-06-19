@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import time
-from typing import List
-
 import os
 
 import torch
 from torch.utils.data import DataLoader
 
-from .arch import PicoType, PicoTypeConfig
+from .arch import PicoType
 from .data import SyntheticGenerator, SyntheticDataset
 from .labels import CODE_LANG_LABELS
 from .train import TrainConfig, collate_fn, get_lr, multi_tier_loss, MultiTaskLoss

@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 import random
 import time
 import urllib.request
 import urllib.error
-from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from .data import IGNORE_INDEX, MAX_BYTES, MIN_BYTES, Sample
+from .data import MAX_BYTES, MIN_BYTES, Sample
 from .labels import COARSE_LABELS, MODALITY_LABELS, CODE_LANG_LABELS
 
 _COARSE = {name: i for i, name in enumerate(COARSE_LABELS)}
@@ -85,28 +83,145 @@ GITHUB_LANG_MAP: Dict[str, str] = {
 
 # Known repos with permissive licenses for each language
 FALLBACK_REPOS: Dict[str, List[str]] = {
-    "python": ["python/cpython", "django/django", "pallets/flask"],
-    "javascript": ["expressjs/express", "lodash/lodash", "nodejs/node"],
-    "typescript": ["microsoft/typescript", "microsoft/vscode"],
-    "java": ["spring-projects/spring-boot", "elastic/elasticsearch"],
-    "go": ["golang/go", "kubernetes/kubernetes"],
-    "rust": ["rust-lang/rust", "tokio-rs/tokio"],
-    "cpp": ["nlohmann/json", "ocornut/imgui"],
-    "c": ["torvalds/linux", "redis/redis"],
-    "ruby": ["rails/rails", "jekyll/jekyll"],
-    "php": ["laravel/laravel", "symfony/symfony"],
-    "swift": ["apple/swift", "Alamofire/Alamofire"],
-    "kotlin": ["JetBrains/kotlin", "square/okhttp"],
-    "scala": ["scala/scala", "apache/spark"],
-    "haskell": ["koalaman/shellcheck"],
-    "lua": ["lua/lua", "neovim/neovim"],
-    "perl": ["AlDanial/cloc"],
-    "r": ["tidyverse/ggplot2"],
-    "julia": ["JuliaLang/julia"],
-    "dart": ["dart-lang/sdk", "flutter/flutter"],
-    "elixir": ["elixir-lang/elixir", "phoenixframework/phoenix"],
-    "clojure": ["clojure/clojure", "technomancy/leiningen"],
-    "erlang": ["erlang/otp", "ninenines/cowboy"],
+    "python": [
+        "python/cpython", "django/django", "pallets/flask",
+        "psf/requests", "pypa/pip", "numpy/numpy", "scipy/scipy",
+        "matplotlib/matplotlib", "pandas-dev/pandas", "scikit-learn/scikit-learn",
+        "pytorch/pytorch", "tensorflow/tensorflow", "ansible/ansible",
+        "home-assistant/core", "mitmproxy/mitmproxy", "httpie/cli",
+        "sqlalchemy/sqlalchemy", "pytest-dev/pytest", "mitsuhiko/flask",
+        "celery/celery", "apache/airflow", "apache/superset",
+    ],
+    "javascript": [
+        "expressjs/express", "lodash/lodash", "nodejs/node",
+        "axios/axios", "chartjs/Chart.js", "moment/moment",
+        "webpack/webpack", "sveltejs/svelte", "preactjs/preact",
+        "babel/babel", "eslint/eslint", "jquery/jquery",
+        "semantic-release/semantic-release", "mochajs/mocha",
+        "videojs/video.js", "jhipster/generator-jhipster",
+    ],
+    "typescript": [
+        "microsoft/typescript", "microsoft/vscode",
+        "nestjs/nest", "typeorm/typeorm", "prisma/prisma",
+        "nestjs/nest", "excalidraw/excalidraw", "calcom/cal.com",
+        "n8n-io/n8n", "appwrite/appwrite", "triggerdev/trigger.dev",
+    ],
+    "jsx": ["facebook/react", "vercel/next.js", "gatsbyjs/gatsby"],
+    "tsx": ["facebook/react", "vercel/next.js", "remix-run/react-router"],
+    "java": [
+        "spring-projects/spring-boot", "elastic/elasticsearch",
+        "apache/hadoop", "apache/dubbo", "netty/netty",
+        "google/guava", "apache/tomcat", "apache/maven",
+        "eclipse/jetty.project", "hibernate/hibernate-orm",
+        "apache/kafka", "apache/zookeeper",
+        "jenkinsci/jenkins", "keycloak/keycloak",
+    ],
+    "kotlin": [
+        "JetBrains/kotlin", "square/okhttp",
+        "Kotlin/kotlinx.coroutines", "Kotlin/kotlinx.serialization",
+        "mockk/mockk", "ktorio/ktor", "JetBrains/compose-multiplatform",
+    ],
+    "scala": ["scala/scala", "apache/spark", "twitter/finagle", "akka/akka"],
+    "groovy": ["apache/groovy", "gradle/gradle", "grails/grails-core"],
+    "clojure": ["clojure/clojure", "technomancy/leiningen", "noprompt/garden"],
+    "c": [
+        "torvalds/linux", "redis/redis", "git/git",
+        "libuv/libuv", "curl/curl", "nginx/nginx",
+        "sqlite/sqlite", "openssl/openssl", "FFmpeg/FFmpeg",
+        "tmux/tmux", "vim/vim", "libevent/libevent",
+        "stedolan/jq", "memcached/memcached",
+    ],
+    "cpp": [
+        "nlohmann/json", "ocornut/imgui", "electron/electron",
+        "google/googletest", "google/leveldb", "facebook/folly",
+        "tensorflow/tensorflow", "apache/arrow", "fmtlib/fmt",
+        "microsoft/calculator", "zealdocs/zeal", "yhirose/cpp-httplib",
+    ],
+    "csharp": [
+        "dotnet/runtime", "dotnet/aspnetcore", "2dust/v2rayN",
+        "JamesNK/Newtonsoft.Json", "AutoMapper/AutoMapper",
+        "fluentmigrator/fluentmigrator", "serilog/serilog",
+    ],
+    "fsharp": ["dotnet/fsharp", "fsprojects/FSharpPlus"],
+    "objectivec": [
+        "AFNetworking/AFNetworking", "SDWebImage/SDWebImage",
+        "realm/realm-swift", "CocoaLumberjack/CocoaLumberjack",
+    ],
+    "go": [
+        "golang/go", "kubernetes/kubernetes",
+        "gin-gonic/gin", "gohugoio/hugo", "moby/moby",
+        "prometheus/prometheus", "etcd-io/etcd", "traefik/traefik",
+        "hashicorp/terraform", "hashicorp/vault", "minio/minio",
+        "grafana/k6", "grpc/grpc-go", "helm/helm",
+        "coredns/coredns", "containerd/containerd",
+    ],
+    "rust": [
+        "rust-lang/rust", "tokio-rs/tokio",
+        "serde-rs/serde", "actix/actix-web", "denoland/deno",
+        "ruffle-rs/ruffle", "swc-project/swc", "neovide/neovide",
+        "meilisearch/meilisearch", "ajeetdsouza/zoxide",
+        "sharkdp/bat", "BurntSushi/ripgrep",
+        "Wilfred/difftastic", "dandavison/delta",
+    ],
+    "zig": ["ziglang/zig", "ziglang/zig-spec"],
+    "ruby": [
+        "rails/rails", "jekyll/jekyll",
+        "ruby/ruby", "Homebrew/brew", "chatwoot/chatwoot",
+        "mastodon/mastodon", "discourse/discourse",
+        "heartcombo/devise", "dependabot/dependabot-core",
+    ],
+    "php": [
+        "laravel/laravel", "symfony/symfony",
+        "composer/composer", "pestphp/pest", "phpstan/phpstan",
+        "coollabsio/coolify", "filamentphp/filament",
+        "magento/magento2", "woocommerce/woocommerce",
+    ],
+    "perl": ["AlDanial/cloc", "duckduckgo/duckduckgo", "Perl/perl5"],
+    "lua": ["lua/lua", "neovim/neovim", "LuaLS/lua-language-server"],
+    "tcl": ["tcltk/tcl", "flightaware/tcllib"],
+    "swift": [
+        "apple/swift", "Alamofire/Alamofire",
+        "vapor/vapor", "pointfreeco/swift-composable-architecture",
+        "airbnb/lottie-ios", "swiftlang/swift-package-manager",
+    ],
+    "dart": ["dart-lang/sdk", "flutter/flutter", "dart-lang/package_config"],
+    "julia": ["JuliaLang/julia", "JuliaDiffEq/DifferentialEquations.jl"],
+    "nim": ["nim-lang/Nim"],
+    "crystal": ["crystal-lang/crystal"],
+    "haskell": ["koalaman/shellcheck", "hadolint/hadolint", "jgm/pandoc"],
+    "ocaml": ["ocaml/ocaml", "coq/coq", "semgrep/semgrep"],
+    "elm": ["elm/compiler"],
+    "erlang": ["erlang/otp", "ninenines/cowboy", "emqx/emqx"],
+    "elixir": ["elixir-lang/elixir", "phoenixframework/phoenix", "plausible/analytics"],
+    "lisp": ["sbcl/sbcl", "fukamachi/ningle"],
+    "scheme": ["racket/racket"],
+    "racket": ["racket/racket"],
+    "r": ["tidyverse/ggplot2", "tidyverse/dplyr", "r-lib/testthat"],
+    "matlab": ["TianhongDai/integrated-human-model"],
+    "octave": ["gnu-octave/octave"],
+    "sas": ["sassoftware/sas-macros"],
+    "stata": ["gslab-econ/ra-gslab"],
+    "html": ["facebook/react", "whatwg/html", "google/material-design-lite"],
+    "css": ["tailwindlabs/tailwindcss", "necolas/normalize.css", "animate-css/animate.css"],
+    "scss": ["twbs/bootstrap", "primer/css"],
+    "sass": ["sass/sass"],
+    "less": ["less/less.js"],
+    "bash": ["xonsh/xonsh", "scop/bash-completion", "dylanaraps/pure-bash-bible"],
+    "zsh": ["ohmyzsh/ohmyzsh", "zsh-users/zsh-autosuggestions", "powerlevel10k/powerlevel10k"],
+    "fish": ["fish-shell/fish-shell"],
+    "powershell": ["PowerShell/PowerShell", "MicrosoftDocs/azure-docs-powershell"],
+    "vim": ["vim/vim", "neovim/neovim"],
+    "fortran": ["Reference-LAPACK/lapack"],
+    "cobol": ["opensourcecobol/opensource-cobol"],
+    "ada": ["AdaCore/gnatcoll-core"],
+    "pascal": ["cheahengsoon/ZeosLib"],
+    "delphi": ["cheahengsoon/ZeosLib"],
+    "vb": ["dotnet/vblang"],
+    "prolog": ["SWI-Prolog/swipl-devel"],
+    "vhdl": ["ghdl/ghdl"],
+    "sql": ["apache/hive", "ClickHouse/ClickHouse"],
+    "plsql": ["oracle/db-sample-schemas"],
+    "tsql": ["microsoft/mssql-server-samples"],
 }
 
 # File extensions to filter by language
@@ -278,7 +393,7 @@ def fetch_from_fallback_repo(
     repo: str,
     extension: str,
     token: str = "",
-    max_files: int = 5,
+    max_files: int = 15,
 ) -> List[bytes]:
     """Fetch files from a known GitHub repo by extension."""
     files: List[bytes] = []
@@ -289,14 +404,18 @@ def fetch_from_fallback_repo(
 
     try:
         req = urllib.request.Request(api_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             tree = json.loads(resp.read()).get("tree", [])
     except Exception as e:
         print(f"  Error fetching repo {repo}: {e}")
         return files
 
     ext = extension if extension.startswith(".") else f".{extension}"
-    candidates = [item for item in tree if item.get("path", "").endswith(ext) and item["type"] == "blob"]
+    candidates = [
+        item for item in tree
+        if item.get("path", "").endswith(ext) and item["type"] == "blob"
+        and not any(p in item.get("path", "") for p in ["test/", "tests/", "spec/", "doc/", "docs/", "example/", "examples/", "benchmark/", "benchmarks/"])
+    ]
     random.shuffle(candidates)
 
     for item in candidates[:max_files * 2]:
@@ -312,7 +431,7 @@ def fetch_from_fallback_repo(
 
 def get_real_code_samples(
     language: str,
-    samples_per_lang: int = 10,
+    samples_per_lang: int = 30,
     token: str = "",
 ) -> List[Sample]:
     """Get real code Samples for a given language from GitHub."""
@@ -328,20 +447,27 @@ def get_real_code_samples(
     all_content.extend(downloaded)
     print(f"  Search API: {len(downloaded)}/{samples_per_lang} for {language}")
 
-    # Strategy 2: Fallback repos
+    # Strategy 2: Fallback repos (much larger list now)
     if len(all_content) < samples_per_lang:
         repos = FALLBACK_REPOS.get(language, [])
+        random.shuffle(repos)
         remaining = samples_per_lang - len(all_content)
-        per_repo = max(1, remaining // max(1, len(repos)))
+        per_repo = max(3, remaining // max(1, len(repos)))
         for repo in repos:
             files = fetch_from_fallback_repo(repo, ext, token, per_repo)
             all_content.extend(files)
             if len(all_content) >= samples_per_lang:
                 break
-        print(f"  Fallback repos: {len(downloaded) + len([r for r in all_content if r not in downloaded]) - len(downloaded)} for {language}")
 
-    # Truncate
-    all_content = all_content[:samples_per_lang]
+    # Truncate and deduplicate by content hash
+    seen = set()
+    unique = []
+    for c in all_content:
+        h = hash(c[:200])
+        if h not in seen:
+            seen.add(h)
+            unique.append(c)
+    all_content = unique[:samples_per_lang]
 
     samples = []
     for content in all_content:

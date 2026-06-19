@@ -89,53 +89,75 @@ _CODE_TEMPLATES: Dict[str, List[str]] = {
         "def ${func}(${args}):\n    \"\"\"docstring\"\"\"\n    ${val}\n    return ${val}\n",
         "for ${loopvar} in ${ident}:\n    ${ident}(${args})\n    break\n",
         "import ${mod}\nfrom ${mod} import ${name}\n\nclass ${cls}(object):\n    def __init__(self, ${args}):\n        self.${attr} = ${val}\n",
+        "import json\nimport os\n\ndef ${func}(${args}):\n    ${var} = os.environ.get('${name}', '${val}')\n    return json.loads(${var})\n",
+        "from typing import ${ident}\n\ndef ${func}(${args}: ${ident}) -> ${ident}:\n    result = ${val}\n    return result\n",
+        "import ${mod}\n\ndef ${func}(${args}):\n    try:\n        ${var} = ${val}\n        return ${var}\n    except Exception as e:\n        raise\n",
+        "@property\ndef ${func}(${args}):\n    return self.${attr}\n\n@${func}.setter\ndef ${func}(${args}):\n    self.${attr} = ${val}\n",
+        "async def ${func}(${args}):\n    ${var} = await ${ident}()\n    return ${var}\n\nawait ${func}(${args})\n",
+        "import ${mod}\n\n${var} = [${ident}(${val}) for ${loopvar} in range(10)]\n${var}.sort(key=lambda x: x.${attr})\n",
     ],
     "c": [
         "#include <stdio.h>\n\nint ${func}(int ${var}) {\n    return ${val};\n}\n",
         "typedef struct { int ${var}; char ${attr}; } ${cls};\n\nint main() {\n    ${cls} ${ident} = {0};\n    return 0;\n}\n",
         "// ${msg}\n#ifndef ${mod}\n#define ${mod}\nvoid ${func}(${args}) {}\n#endif\n",
+        "#include <stdlib.h>\n#include <string.h>\n\nchar* ${func}(const char* ${var}) {\n    size_t len = strlen(${var});\n    char* result = malloc(len + 1);\n    strcpy(result, ${var});\n    return result;\n}\n",
+        "#include <stdio.h>\n\nint main(int argc, char* argv[]) {\n    for (int ${loopvar} = 0; ${loopvar} < argc; ${loopvar}++) {\n        printf(\"%s\\n\", argv[${loopvar}]);\n    }\n    return 0;\n}\n",
     ],
     "go": [
         "package main\n\nfunc ${func}(${args}) ${ident} {\n    return ${val}\n}\n",
         "type ${cls} struct {\n    ${var} int\n}\n\nfunc (t *${cls}) ${func}() ${ident} {\n    return t.${var}\n}\n",
+        "package main\n\nimport (\n    \"fmt\"\n    \"os\"\n)\n\nfunc main() {\n    ${var} := os.Getenv(\"${name}\")\n    if ${var} == \"\" {\n        ${var} = \"${val}\"\n    }\n    fmt.Println(${var})\n}\n",
+        "package main\n\ntype ${cls} struct {\n    ${var} string\n    ${attr} int\n}\n\nfunc New${cls}(${args}) *${cls} {\n    return &${cls}{${var}: ${name}, ${attr}: ${val}}\n}\n",
     ],
     "rust": [
         "fn ${func}(${args}) -> ${ident} {\n    ${val}\n}\n\nfn main() {\n    let ${var} = ${func}(${args});\n}\n",
         "#[derive(Debug)]\nstruct ${cls} {\n    ${var}: ${ident},\n}\n\nimpl ${cls} {\n    fn ${func}() -> Self { Self { ${var}: ${val} } }\n}\n",
+        "use std::collections::HashMap;\n\nfn ${func}(${args}) -> Result<${ident}, String> {\n    let mut map = HashMap::new();\n    map.insert(\"${name}\", ${val});\n    Ok(map)\n}\n",
+        "#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let ${var} = reqwest::get(\"https://${name}.com\").await?;\n    println!(\"{:?}\", ${var});\n    Ok(())\n}\n",
     ],
     "lisp": [
         "(defun ${func} (${args})\n  \"${msg}\"\n  ${val})\n",
         "(defparameter *${var}* ${val})\n\n(defun ${ident} ()\n  (format t \"~a\" *${var}*))\n",
+        "(defclass ${cls} ()\n  ((${var} :initarg :${var} :accessor ${var})\n   (${attr} :initarg :${attr} :accessor ${attr})))\n",
     ],
     "haskell": [
         "${func} :: ${ident} -> ${ident}\n${func} ${var} = ${val}\n\nmain :: IO ()\nmain = print $ ${func} ${val}\n",
         "data ${cls} = ${cls} { ${var} :: ${ident} } deriving (Show)\n\n${func} :: ${cls} -> ${ident}\n${func} (${cls} ${var}) = ${var}\n",
+        "module ${mod} where\n\nimport Data.List\n\n${func} :: [${ident}] -> [${ident}]\n${func} xs = filter (\\x -> x > ${val}) xs\n",
     ],
     "erlang": [
         "-module(${mod}).\n-export([${func}/1]).\n\n${func}(${args}) -> ${val}.\n",
+        "-module(${mod}).\n-behaviour(gen_server).\n\n-export([start_link/0, init/1]).\n\ninit(${args}) -> {ok, ${val}}.\n",
     ],
     "js": [
         "function ${func}(${args}) {\n    return ${val};\n}\n\n${func}(${val});\n",
         "const ${var} = (${args}) => {\n    console.log(${var});\n    return ${val};\n};\n",
         "class ${cls} {\n    constructor(${args}) {\n        this.${attr} = ${val};\n    }\n}\n\nexport default ${cls};\n",
+        "import { ${ident} } from '${mod}';\n\nasync function ${func}(${args}) {\n    try {\n        const ${var} = await ${ident}(${val});\n        return ${var}.data;\n    } catch (err) {\n        console.error(err);\n        throw err;\n    }\n}\n",
+        "const ${var} = require('${mod}');\n\n${ident}.get('/${name}', (req, res) => {\n    res.json({ ${attr}: ${val} });\n});\n",
     ],
     "php": [
         "<?php\nfunction ${func}(${args}) {\n    $${var} = ${val};\n    return $${var};\n}\n?>\n",
+        "<?php\nnamespace ${mod};\n\nclass ${cls} {\n    private $${var};\n\n    public function __construct(${args}) {\n        $this->${attr} = ${val};\n    }\n\n    public function ${func}() {\n        return $this->${var};\n    }\n}\n",
     ],
     "lua": [
         "function ${func}(${args})\n    local ${var} = ${val}\n    return ${var}\nend\n\n${func}(${val})\n",
+        "local ${mod} = require('${name}')\n\nlocal ${cls} = {}\n${cls}.__index = ${cls}\n\nfunction ${cls}:${func}(${args})\n    self.${attr} = ${val}\n    return self\nend\n",
     ],
     "swift": [
         "func ${func}(${args}) -> ${ident} {\n    return ${val}\n}\n\nlet ${var} = ${func}(${val})\n",
+        "import Foundation\n\nstruct ${cls} {\n    let ${var}: String\n    let ${attr}: Int\n\n    func ${func}() -> String {\n        return \"\\(${var}): \\(${attr})\"\n    }\n}\n",
     ],
     "tcl": [
         "proc ${func} {${args}} {\n    set ${var} ${val}\n    return $${var}\n}\n\n${func} ${val}\n",
     ],
     "r": [
         "${func} <- function(${args}) {\n    ${var} <- ${val}\n    return(${var})\n}\n\n${func}(${val})\n",
+        "library(${mod})\n\n${func} <- function(${args}) {\n    df <- data.frame(${var} = ${val}, ${attr} = ${val})\n    return(df)\n}\n",
     ],
     "fortran": [
         "program ${mod}\n  implicit none\n  integer :: ${var}\n  ${var} = ${val}\n  print *, ${var}\nend program ${mod}\n",
+        "module ${mod}\n  implicit none\ncontains\n  subroutine ${func}(${args})\n    integer, intent(in) :: ${var}\n    print *, ${var}\n  end subroutine\nend module\n",
     ],
     "abap": [
         "REPORT ${mod}.\nFORM ${func} USING ${args}.\n  DATA: ${var} TYPE i.\n  ${var} = ${val}.\nENDFORM.\n",
@@ -145,6 +167,7 @@ _CODE_TEMPLATES: Dict[str, List[str]] = {
     ],
     "vb": [
         "Module ${mod}\n    Sub ${func}(${args})\n        Dim ${var} As Integer = ${val}\n    End Sub\nEnd Module\n",
+        "Public Class ${cls}\n    Private ${var} As String\n\n    Public Sub New(${args})\n        Me.${attr} = ${val}\n    End Sub\nEnd Class\n",
     ],
     "markup": [
         "<!DOCTYPE html>\n<html>\n<head><title>${msg}</title></head>\n<body>\n<div class=\"${ident}\">${msg}</div>\n</body>\n</html>\n",
@@ -152,12 +175,16 @@ _CODE_TEMPLATES: Dict[str, List[str]] = {
     ],
     "sh": [
         "#!/bin/bash\n\n${func}() {\n    local ${var}=${val}\n    echo $${var}\n}\n\n${func}\n",
+        "#!/bin/bash\n\nset -euo pipefail\n\nfor ${loopvar} in \"$@\"; do\n    if [[ -f \"$${loopvar}\" ]]; then\n        echo \"${msg}: $${loopvar}\"\n    fi\ndone\n",
     ],
     "vim": [
         "\" ${msg}\nfunction! ${func}(${args}) abort\n    return ${val}\nendfunction\n",
     ],
     "sql": [
         "CREATE TABLE ${cls} ( ${var} INT, ${attr} VARCHAR(255) );\n\nSELECT * FROM ${cls} WHERE ${var} = ${val};\n",
+        "SELECT ${var}, COUNT(*) as cnt\nFROM ${cls}\nWHERE ${attr} > ${val}\nGROUP BY ${var}\nHAVING cnt > 1\nORDER BY cnt DESC;\n",
+        "INSERT INTO ${cls} (${var}, ${attr})\nVALUES (${val}, '${name}');\n\nUPDATE ${cls}\nSET ${attr} = ${val}\nWHERE ${var} = ${name};\n",
+        "SELECT a.${var}, b.${attr}\nFROM ${cls} a\nJOIN ${cls} b ON a.${var} = b.${var}\nWHERE a.${attr} > ${val}\nLIMIT 10;\n",
     ],
 }
 

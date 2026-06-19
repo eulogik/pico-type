@@ -103,7 +103,6 @@ ONNX_VERSION = "1"  # bump to force re-download (e.g., after model update)
 
 def _ensure_onnx(tier: str):
     path = os.path.join(MODEL_DIR, f"picotype_{tier}.onnx")
-    data_path = os.path.join(MODEL_DIR, f"picotype_{tier}.onnx.data")
     version_file = os.path.join(MODEL_DIR, ".onnx_version")
     cached_version = ""
     if os.path.exists(version_file):
