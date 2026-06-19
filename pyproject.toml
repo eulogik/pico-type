@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pico-type"
-version = "0.1.5"
+version = "0.1.6"
 description = "A tiny byte-level multi-head content classifier"
 readme = "README.md"
 license = { text = "Apache-2.0" }
