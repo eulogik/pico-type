@@ -231,7 +231,7 @@ def main():
             if acc > best_acc:
                 best_acc = acc
                 best_state = model.state_dict()
-                print(f"  New best!")
+                print("  New best!")
             model.train()
 
     if best_state is not None and best_acc > acc_before:

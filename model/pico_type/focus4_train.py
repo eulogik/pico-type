@@ -1,6 +1,7 @@
 """Round 4: ultra-focused on last 3 failures only."""
 from __future__ import annotations
-import os, pickle, random, torch
+import random
+import torch
 from .arch import PicoType, PicoTypeConfig
 from .data import Sample
 from .finetune_real import _eval_real_world
@@ -136,7 +137,7 @@ def main():
             if acc > best_acc:
                 best_acc = acc
                 best_state = m.state_dict()
-                print(f"  *** NEW BEST ***")
+                print("  *** NEW BEST ***")
             m.train()
 
     if best_state and best_acc > acc_before:

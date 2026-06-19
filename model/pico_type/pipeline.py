@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import pickle
-import sys
-import time
 
 import torch
 
@@ -15,10 +12,7 @@ from .arch import PicoType, PicoTypeConfig
 from .data import SyntheticGenerator, SyntheticDataset
 from .labels import CODE_LANG_LABELS
 from .train import TrainConfig, collate_fn, get_lr, multi_tier_loss, MultiTaskLoss
-from .train import load_checkpoint
-from .realdata import build_real_code_dataset
-from .eval import evaluate, EvalConfig, EvalResults, _serialize
-from .labels import COARSE_LABELS, MODALITY_LABELS, SUBTYPE_LABELS, CODE_LANG_LABELS, TEXT_LANG_LABELS, FILE_MIME_LABELS, RISK_LABELS
+from .labels import COARSE_LABELS, MODALITY_LABELS, SUBTYPE_LABELS, TEXT_LANG_LABELS, FILE_MIME_LABELS, RISK_LABELS
 
 REAL_WORLD_LABEL_MAP = {
     "coarse": COARSE_LABELS,
@@ -277,7 +271,7 @@ def run_pipeline(token: str = "", samples_per_lang: int = 30, total_steps: int =
     print(f"\nBefore: {before_acc*100:.1f}%")
     print(f"After:  {rw['accuracy']*100:.1f}%")
     print(f"Delta:  {(rw['accuracy'] - before_acc)*100:+.1f}%")
-    print(f"\nPer-input details:")
+    print("\nPer-input details:")
     for d in rw["details"]:
         status = "✓" if d["correct"] == d["total"] else "✗"
         print(f"  {status} [{d['correct']}/{d['total']}] {d['text'][:60]}")

@@ -10,7 +10,7 @@ import random
 import torch
 
 from .arch import PicoType, PicoTypeConfig
-from .data import Sample, SyntheticGenerator, SyntheticDataset
+from .data import Sample, SyntheticGenerator
 from .labels import (
     COARSE_LABELS, MODALITY_LABELS, SUBTYPE_LABELS,
     CODE_LANG_LABELS, TEXT_LANG_LABELS,
@@ -63,7 +63,6 @@ def generate_variants(rng=random) -> list[Sample]:
     # 2) Bash shebang (currently predicts fish)
     for _ in range(200):
         cmd = _rng_ident(rng, 5)
-        dirname = _rng_ident(rng, 4)
         variants = [
             "#!/bin/bash\n\necho 'hello'\n",
             "#!/bin/bash\n\nset -e\n\necho 'done'\n",
@@ -160,7 +159,8 @@ def generate_variants(rng=random) -> list[Sample]:
             ))
 
     # 7) Image PNG headers
-    import struct, zlib
+    import struct
+    import zlib
     for _ in range(100):
         w, h = rng.randint(1, 100), rng.randint(1, 100)
         sig = b'\x89PNG\r\n\x1a\n'
@@ -326,7 +326,7 @@ def main():
     print(f"Delta: {(acc-acc_before)*100:+.1f}%")
 
     if best_acc > acc_before:
-        print(f"\n✓ Improved! Replacing checkpoint...")
+        print("\n✓ Improved! Replacing checkpoint...")
         torch.save({
             "step": step,
             "model_state_dict": best_state or model.state_dict(),

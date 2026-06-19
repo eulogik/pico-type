@@ -10,7 +10,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from model.pico_type.realdata import search_download_code, fetch_from_fallback_repo
+from model.pico_type.realdata import search_download_code
 from model.pico_type.labels import CODE_LANG_LABELS
 from model.pico_type.data import MAX_BYTES, MIN_BYTES, Sample
 
@@ -60,7 +60,6 @@ def fetch_fast(
     }
 
     from model.pico_type.realdata import fetch_raw
-    remaining = samples_per_lang - n_search
     files = known_files.get(language, [])
     for url in files:
         if len(samples) >= samples_per_lang:
@@ -102,7 +101,7 @@ def main():
                 all_samples = data
         print(f"Resumed: {len(all_samples)} samples, {len(completed_langs)} languages")
 
-    langs_to_do = [l for l in CODE_LANG_LABELS if l not in completed_langs]
+    langs_to_do = [lang for lang in CODE_LANG_LABELS if lang not in completed_langs]
     print(f"Fetching {len(langs_to_do)} remaining ({len(completed_langs)} done)")
 
     for i, lang in enumerate(langs_to_do):

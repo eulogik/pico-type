@@ -1,6 +1,10 @@
 """Round 5: Mixed approach for the 3 borderline failures."""
 from __future__ import annotations
-import os, pickle, random, torch, math
+import os
+import pickle
+import random
+import torch
+import math
 from .arch import PicoType, PicoTypeConfig
 from .data import Sample, SyntheticGenerator
 from .finetune_real import _eval_real_world
@@ -129,7 +133,8 @@ def main():
         labels = {k:v.to(device) for k,v in coll["labels"].items()}
 
         lr = 3e-6 * min(1, (step+1)/100) if step < 100 else 3e-6 * 0.5 * (1 + math.cos((step-100)/1900*math.pi))
-        for pg in opt.param_groups: pg["lr"] = lr
+        for pg in opt.param_groups:
+            pg["lr"] = lr
 
         opt.zero_grad()
         loss, comps = multi_tier_loss(m, ids, mask, labels, criterion, ("base",))
@@ -140,7 +145,8 @@ def main():
         if step % 50 == 0:
             parts = [f"step={step:5d} lr={lr:.7f} loss={loss.item():.4f}"]
             for h in ("coarse", "modality", "subtype", "code_lang", "text_lang"):
-                if h in comps: parts.append(f"{h}={comps[h]:.4f}")
+                if h in comps:
+                    parts.append(f"{h}={comps[h]:.4f}")
             print("  ".join(parts))
 
         if step % 500 == 0 or step == 1999:
@@ -149,7 +155,7 @@ def main():
             if acc > best_acc:
                 best_acc = acc
                 best_state = m.state_dict()
-                print(f"  NEW BEST!")
+                print("  NEW BEST!")
             m.train()
 
     if best_state and best_acc > acc_before:

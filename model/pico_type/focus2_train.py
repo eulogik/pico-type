@@ -69,7 +69,6 @@ def gen_focus2(rng=random.Random(42)):
             ))
 
     # 2) French text (currently predicts Czech)
-    import unicodedata
     fr_sentences = [
         "Bonjour le monde! Comment allez-vous aujourd'hui?",
         "Je m'appelle Pierre et j'habite à Paris depuis cinq ans.",
@@ -297,7 +296,7 @@ def main():
             "model_state_dict": best_state,
             "real_world_accuracy": best_acc,
         }, os.path.join(args.output, "best.pt"))
-        print(f"✓ Replaced best.pt")
+        print("✓ Replaced best.pt")
 
 
 if __name__ == "__main__":

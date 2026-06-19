@@ -5,18 +5,16 @@ from __future__ import annotations
 import argparse
 import os
 import pickle
-import time as _time
 
 import torch
-from torch.utils.data import DataLoader
 
 from .arch import PicoType, PicoTypeConfig
-from .data import SyntheticGenerator, SyntheticDataset
+from .data import SyntheticGenerator
 from .labels import (
     COARSE_LABELS, MODALITY_LABELS, SUBTYPE_LABELS,
-    CODE_LANG_LABELS, TEXT_LANG_LABELS, FILE_MIME_LABELS, RISK_LABELS,
+    CODE_LANG_LABELS, TEXT_LANG_LABELS, FILE_MIME_LABELS,
 )
-from .train import TrainConfig, collate_fn, get_lr, multi_tier_loss, MultiTaskLoss, load_checkpoint
+from .train import collate_fn, multi_tier_loss, MultiTaskLoss
 
 REAL_WORLD_INPUTS: list[dict] = [
     {"text": "def hello():\n    print('Hello, world!')", "coarse": "code", "code_lang": "python"},
@@ -209,7 +207,7 @@ def main():
     print(f"Delta: {delta:+.1f}%")
 
     if acc > acc_before:
-        print(f"\n✓ Improved! Replacing checkpoint...")
+        print("\n✓ Improved! Replacing checkpoint...")
         torch.save({
             "step": step,
             "model_state_dict": model.state_dict(),
