@@ -18,6 +18,8 @@ ENV/
 # Build artifacts
 *.egg-info/
 build/
+# Rust
+crates/*/target/
 dist/
 # Data
 data/raw/
