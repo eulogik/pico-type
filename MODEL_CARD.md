@@ -202,7 +202,7 @@ logits_base = model(x, mask, tier="base")
 | HuggingFace Model | [eulogik/pico-type](https://huggingface.co/eulogik/pico-type) |
 | GitHub | [eulogik/pico-type](https://github.com/eulogik/pico-type) |
 | PyPI | `pip install picotype` |
-| arXiv | [XXXX.XXXXX](https://arxiv.org/abs/XXXX.XXXXX) |
+| Zenodo | [10.5281/zenodo.20758542](https://doi.org/10.5281/zenodo.20758542) |
 
 ## Limitations
 
@@ -218,7 +218,8 @@ logits_base = model(x, mask, tier="base")
   author = {eulogik},
   title = {pico-type: A Tiny Byte-Level Multi-Head Content Classifier},
   year = {2026},
-  url = {https://github.com/eulogik/pico-type}
+  url = {https://github.com/eulogik/pico-type},
+  doi = {10.5281/zenodo.20758542}
 }
 ```
 

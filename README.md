@@ -35,7 +35,7 @@ _Classifies any content into **7 categories** from raw bytes in a single forward
 [![HuggingFace Model](https://img.shields.io/badge/HuggingFace-Model-orange)](https://huggingface.co/eulogik/pico-type)
 [![GitHub](https://img.shields.io/badge/GitHub-eulogik/pico--type-181717?logo=github)](https://github.com/eulogik/pico-type)
 [![CI](https://img.shields.io/github/actions/workflow/status/eulogik/pico-type/ci.yml?logo=githubactions&label=CI)](https://github.com/eulogik/pico-type/actions)
-[![DOI](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b)](https://arxiv.org/abs/XXXX.XXXXX)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20758542.svg)](https://doi.org/10.5281/zenodo.20758542)
 
 _Built by [**eulogik**](https://eulogik.com) — AI infrastructure for developers._
 
@@ -140,7 +140,7 @@ All tiers share the same trunk; only the final linear layers differ. Switch tier
 | HuggingFace Model | [eulogik/pico-type](https://huggingface.co/eulogik/pico-type) |
 | GitHub | [eulogik/pico-type](https://github.com/eulogik/pico-type) |
 | PyPI | `pip install picotype` |
-| arXiv | [XXXX.XXXXX](https://arxiv.org/abs/XXXX.XXXXX) (coming soon) |
+| Zenodo | [10.5281/zenodo.20758542](https://doi.org/10.5281/zenodo.20758542) |
 
 ## 📚 Documentation
 
