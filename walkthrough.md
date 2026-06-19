@@ -318,6 +318,43 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 - `run_eval()` — CLI: `python -m model.pico_type.eval --eval-size 1000 --checkpoint checkpoints/best.pt`
 - `_average_precision(y_true, y_scores)` — area under PR curve via trapezoidal rule
 
+### Hindi support + v0.1.4 (Jun 18)
+- Replaced `ms` (Malay, index 29) with `hi` (Hindi) in `TEXT_LANG_LABELS`. Added Hindi word list to `_TEXT_WORDS` in `data.py`.
+- Fine-tuned 800 steps — Hindi text now correctly detected as `text_lang=hi`.
+- code_lang improved to **61.3%** on synthetic eval after Hindi fine-tune (unexpected side benefit).
+- Published as **v0.1.4** at https://pypi.org/project/pico-type/0.1.4/
+
+### Diverse synthetic training + real-world eval improvement (Jun 18)
+- Created diverse generator: patched `_gen_config`, `_gen_markup`, `_gen_text`, `_gen_error` with realistic patterns (markdown with code blocks, Python tracebacks, JS errors, nested YAML, env vars, tech prose, emails, conversations).
+- **Real-world eval accuracy**: 22.7% → **52.4%** (2.3x better, 11/21 correct)
+  - coarse classification fixed for config, error, text, markup
+  - code_lang still "undetected" for real snippets (Python `def`, JS `function`, C `#include`, etc.)
+- Key change: coarse head weight increased to **8.0** (was 3.0) to prevent "default to code" behavior
+- Synthetic eval regression: coarse 100%→99.8%, code_lang 61.3%→38.7%, text_lang 100%→98.8% (expected — harder data)
+
+### ONNX re-export + v0.1.5 (Jun 18)
+- Re-exported all 4 ONNX tiers from best.pt (diverse-trained checkpoint)
+- Published as **v0.1.5** at https://pypi.org/project/pico-type/0.1.5/
+- ONNX files pushed to HF model repo root, Space redeployed
+
+### Quantization attempts (deferred)
+- **INT8**: ONNX shape inference fails — `[ShapeInferenceError] Inferred shape (192) vs (12)`. Multi-head architecture (shared 192-dim pooled vector → 7 linear layers with different output dims) confuses shape inference.
+- **FP16**: `onnxconverter_common.float16` succeeds but produces type mismatch errors in ONNX Runtime. Could not resolve with `op_block_list`.
+
+### Fresh training from scratch experiment (Jun 18, discarded)
+- Tried training from scratch with diverse generator + 647 real GitHub samples (30% ratio) + high coarse weight (8.0)
+- 4000 steps, batch_size=16, best eval loss 2.42
+- **Result**: Worse than fine-tuned model — real-world accuracy only 28.6% vs 52.4% from fine-tuned best.pt
+- **Lesson**: Training from scratch with high coarse weight over-prioritizes coarse classification at expense of code_lang/text_lang. Fine-tuning from a good synthetic checkpoint with gradual head-weight adjustments works better.
+- **Status**: Discarded. Production model remains `checkpoints/best.pt` (52.4% real-world accuracy).
+
+### v0.1.6: Docs, model card, HF fixes (Jun 18)
+- Uploaded `walkthrough.md`, `docs/PLAN.md`, `MODEL_CARD.md` to HF model repo (fixes broken links on HF model page)
+- Updated README.md with badges (PyPI, CI, DOI), eulogik branding, real-world accuracy metrics
+- Updated MODEL_CARD.md with full training/architecture details, citation, eulogik branding
+- Updated paper/main.tex with real-world eval, diverse generator details, higher coarse weight
+- Created HF org card content for eulogik organization page (paste at huggingface.co/eulogik)
+
 ---
 
 ## 8. What's next (from plan §3–§6, in order)

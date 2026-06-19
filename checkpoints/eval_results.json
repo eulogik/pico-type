@@ -1,7 +1,7 @@
 {
   "head_metrics": {
     "coarse": {
-      "accuracy": 1.0,
+      "accuracy": 0.998,
       "support": 1000,
       "n_classes": 12
     },
@@ -11,17 +11,17 @@
       "n_classes": 8
     },
     "subtype": {
-      "accuracy": 0.9878,
+      "accuracy": 0.9472,
       "support": 246,
       "n_classes": 24
     },
     "code_lang": {
-      "accuracy": 0.6129,
+      "accuracy": 0.3871,
       "support": 93,
       "n_classes": 62
     },
     "text_lang": {
-      "accuracy": 1.0,
+      "accuracy": 0.9875,
       "support": 80,
       "n_classes": 30
     },
@@ -31,28 +31,6 @@
       "n_classes": 90
     }
   },
-  "risk_metrics": {
-    "per_class": {
-      "api_key": {
-        "average_precision": 1.0
-      },
-      "jwt": {
-        "average_precision": 1.0
-      },
-      "ssh_key": {
-        "average_precision": 1.0
-      },
-      "password": {
-        "average_precision": 1.0
-      },
-      "email": {
-        "average_precision": 1.0
-      },
-      "phone": {
-        "average_precision": 1.0
-      }
-    },
-    "average_precision": 1.0
-  },
-  "inference_time_ms": 4.8344
+  "risk_ap": 1.0,
+  "inference_time_ms": 4.9047
 }
