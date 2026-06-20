@@ -21,6 +21,8 @@ inference:
 
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/eulogik/pico-type/main/docs/logo.png" alt="pico-type" height="64" />
+
 # pico-type 🔍
 
 **A tiny byte-level multi-head content classifier** — ~1.5M params, ~209KB ONNX, <6ms inference.
