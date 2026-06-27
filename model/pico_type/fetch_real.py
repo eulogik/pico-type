@@ -20,7 +20,7 @@ _MODALITY = {"textual": 0}
 
 def fetch_fast(
     language: str,
-    samples_per_lang: int = 20,
+    samples_per_lang: int = 50,
     token: str = "",
 ) -> list[Sample]:
     """Fast fetch: Search API only, skip slow fallback repos entirely."""
@@ -80,7 +80,7 @@ def fetch_fast(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", default="", help="GitHub token")
-    parser.add_argument("--samples-per-lang", type=int, default=20)
+    parser.add_argument("--samples-per-lang", type=int, default=50)
     parser.add_argument("--output", default="checkpoints/real_samples.pkl")
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()

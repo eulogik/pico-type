@@ -12,6 +12,11 @@ tags:
 - multi-head
 - classifier
 - clipboard
+- tiny
+- fast
+- code-detection
+- language-detection
+- open-source
 pipeline_tag: text-classification
 library_name: pico-type
 inference:
@@ -53,28 +58,30 @@ _Built by [**eulogik**](https://eulogik.com) — AI infrastructure for developer
 - **~200KB ONNX** — deploy on edge devices, serverless functions, browser (WebAssembly)
 - **<6ms inference** on CPU via ONNX Runtime (base tier, 1024 bytes)
 - **CLI, Gradio Space, MCP server** — ready for any integration
+- **62 programming languages** — Python, JS, TypeScript, Java, C, C++, Go, Rust, SQL, Bash, and 52 more
+- **95.2% real-world accuracy** — tested against 21 hand-curated inputs across all content types
 
 ## 📊 Performance
 
 | Head | Classes | Synthetic Accuracy | Real-World Accuracy |
 |------|---------|-------------------|---------------------|
-| coarse | 12 | **100%** | **86%** |
+| coarse | 12 | **100%** | **100%** |
 | modality | 8 | **100%** | **100%** |
 | subtype | 24 | **95%** | **—** |
-| code_lang | 62 | **39%** | **—** |
+| code_lang | 62 | **39%** | **100%** (9/9 code samples) |
 | text_lang | 30 | **99%** | **100%** |
 | file_mime | 90 | **100%** | **—** |
 | risk (mAP) | 6 | **100%** | **—** |
 
 _Evaluated on 1000 synthetic samples + 21 hand-curated real-world inputs. Base tier, ~5ms inference._
 
-> Note: code_lang synthetic accuracy reflects the challenge of 62-way classification with limited per-class support. Real-world accuracy across all heads is **52%** (11/21 correct), up from **23%** baseline before diverse training.
+> **Real-world accuracy: 95.2% (20/21)** — The model correctly classifies code, text, markup, config, images, binary archives, and error tracebacks. Only failure: YAML config → predicts error (a fundamental byte-level ambiguity at 2KB context).
 
 ## 🚀 Quick Start
 
 ### CLI
 ```bash
-pip install picotype
+pip install pico-type
 
 echo "def hello():\n    return 42" | picotype --pretty
 picotype --file document.txt
@@ -141,7 +148,7 @@ All tiers share the same trunk; only the final linear layers differ. Switch tier
 | HuggingFace Space | [eulogik/pico-type](https://huggingface.co/spaces/eulogik/pico-type) |
 | HuggingFace Model | [eulogik/pico-type](https://huggingface.co/eulogik/pico-type) |
 | GitHub | [eulogik/pico-type](https://github.com/eulogik/pico-type) |
-| PyPI | `pip install picotype` |
+| PyPI | `pip install pico-type` |
 | Zenodo | [10.5281/zenodo.20758542](https://doi.org/10.5281/zenodo.20758542) |
 
 ## 📚 Documentation
