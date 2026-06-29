@@ -6,64 +6,18 @@ language:
 tags:
 - byte-level
 - content-classification
-- onnx
-- edge-ai
-- matryoshka
 - multi-head
 - classifier
-- clipboard
-- tiny
-- fast
+- onnx
+- edge-ai
 - code-detection
 - language-detection
+- clipboard
+- tiny
 - open-source
-- clipboard-classifier
-- content-type-detector
-- code-language-detection
-- text-classification
 - onnx-runtime
-- zero-tokenizer
-- matryoshka-embeddings
 pipeline_tag: text-classification
 library_name: pico-type
-inference:
-  parameters:
-    provider: CPUExecutionProvider
-metrics:
-- accuracy
-model-index:
-- name: pico-type
-  results:
-  - task:
-      type: text-classification
-      name: Content Classification
-    dataset:
-      type: custom
-      name: Real-World Content Samples
-    metrics:
-    - type: accuracy
-      value: 95.2
-      name: Real-World Accuracy
-  - task:
-      type: text-classification
-      name: Code Language Detection
-    dataset:
-      type: custom
-      name: Real-World Code Samples
-    metrics:
-    - type: accuracy
-      value: 100.0
-      name: Code Language Accuracy (real)
-  - task:
-      type: token-classification
-      name: Secret Detection (mAP)
-    dataset:
-      type: custom
-      name: Synthetic Secret Samples
-    metrics:
-    - type: accuracy
-      value: 100.0
-      name: Secret Detection Accuracy
 ---
 
 <div align="center">
