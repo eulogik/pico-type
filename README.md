@@ -17,11 +17,53 @@ tags:
 - code-detection
 - language-detection
 - open-source
+- clipboard-classifier
+- content-type-detector
+- code-language-detection
+- text-classification
+- onnx-runtime
+- zero-tokenizer
+- matryoshka-embeddings
 pipeline_tag: text-classification
 library_name: pico-type
 inference:
   parameters:
     provider: CPUExecutionProvider
+metrics:
+- accuracy
+model-index:
+- name: pico-type
+  results:
+  - task:
+      type: text-classification
+      name: Content Classification
+    dataset:
+      type: custom
+      name: Real-World Content Samples
+    metrics:
+    - type: accuracy
+      value: 95.2
+      name: Real-World Accuracy
+  - task:
+      type: text-classification
+      name: Code Language Detection
+    dataset:
+      type: custom
+      name: Real-World Code Samples
+    metrics:
+    - type: accuracy
+      value: 100.0
+      name: Code Language Accuracy (real)
+  - task:
+      type: token-classification
+      name: Secret Detection (mAP)
+    dataset:
+      type: custom
+      name: Synthetic Secret Samples
+    metrics:
+    - type: accuracy
+      value: 100.0
+      name: Secret Detection Accuracy
 ---
 
 <div align="center">
@@ -30,7 +72,7 @@ inference:
 
 # pico-type 🔍
 
-**A tiny byte-level multi-head content classifier** — ~1.5M params, ~209KB ONNX, <6ms inference.
+**A tiny byte-level multi-head content classifier** — ~1.5M params, ~9MB ONNX, <6ms inference.
 
 _Classifies any content into **7 categories** from raw bytes in a single forward pass._
 
@@ -55,7 +97,7 @@ _Built by [**eulogik**](https://eulogik.com) — AI infrastructure for developer
 - **No tokenizer** — operates directly on raw UTF-8 bytes (supports all languages, zero pre-processing)
 - **7 heads, one forward pass** — coarse type, modality, subtype, code lang, text lang, file MIME, risk flags
 - **4 Matryoshka tiers** — tiny (16d) → small (64d) → base (192d) → pro (576d)
-- **~200KB ONNX** — deploy on edge devices, serverless functions, browser (WebAssembly)
+- **~9MB ONNX** — self-contained single-file, deploy on edge devices, serverless functions, browser (WebAssembly)
 - **<6ms inference** on CPU via ONNX Runtime (base tier, 1024 bytes)
 - **CLI, Gradio Space, MCP server** — ready for any integration
 - **62 programming languages** — Python, JS, TypeScript, Java, C, C++, Go, Rust, SQL, Bash, and 52 more
@@ -102,6 +144,9 @@ result = decode_output(model(b"input bytes"), tier="base")
 PICOTYPE_MODEL_DIR=./checkpoints python -m model.pico_type.mcp_server
 ```
 
+### Browser Demo (No Install)
+Try the in-browser demo at [**eulogik.github.io/pico-type/demo.html**](https://eulogik.github.io/pico-type/demo.html) — runs the full model via ONNX Runtime Web. No server needed.
+
 ## 🏗 Architecture
 
 ```
@@ -122,10 +167,10 @@ Bytes → ByteEmbed(256→96d) → 3×Conv1D(k=3,5,7) → 2×BiAttention(RoPE) �
 
 | Tier | Dim | Params | ONNX Size | Speed |
 |------|-----|--------|-----------|-------|
-| tiny | 16 | 1.43M | 207 KB | ~3ms |
-| small | 64 | 1.45M | 207 KB | ~4ms |
-| base | 192 | 1.48M | 209 KB | ~5ms |
-| pro | 576 | 1.56M | 206 KB | ~12ms |
+| tiny | 16 | 1.43M | 8.7 MB | ~3ms |
+| small | 64 | 1.45M | 8.7 MB | ~4ms |
+| base | 192 | 1.48M | 8.8 MB | ~5ms |
+| pro | 576 | 1.56M | 9.1 MB | ~12ms |
 
 All tiers share the same trunk; only the final linear layers differ. Switch tiers at inference with zero overhead.
 

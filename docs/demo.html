@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pico-Type Demo — In-Browser Content Classifier</title>
+  <meta name="description" content="Try Pico-Type in your browser: a 1.5M-parameter byte-level multi-head classifier that identifies code language, content type, and more — no server needed." />
+  <meta property="og:title" content="Pico-Type — In-Browser Demo" />
+  <meta property="og:description" content="Classifies content into 7 categories from raw bytes. Runs entirely in your browser via ONNX Runtime Web." />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" href="logo.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --bg: #0f0f1a;
+      --bg-card: #1a1a2e;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: #2d2d4a;
+      --success: #34d399;
+      --warn: #fbbf24;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; width: 100%; }
+
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header img { height: 32px; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header h1 a { color: var(--text); text-decoration: none; }
+    header h1 a:hover { color: var(--accent-light); }
+    header .subtitle { color: var(--text-muted); font-size: 14px; margin-left: auto; }
+
+    .hero {
+      text-align: center;
+      padding: 48px 24px 32px;
+    }
+    .hero h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    .hero p { color: var(--text-muted); font-size: 15px; max-width: 600px; margin: 0 auto; }
+    .hero .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent-light);
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 0 24px 48px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .input-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .input-panel label { font-size: 14px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .input-panel textarea {
+      width: 100%;
+      min-height: 220px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      color: var(--text);
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+    .input-panel textarea:focus { outline: none; border-color: var(--accent); }
+    .input-panel textarea::placeholder { color: #475569; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .controls select:focus { outline: none; border-color: var(--accent); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent; color: var(--text); border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--accent); }
+
+    .status {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+    .status.loading { color: var(--accent-light); }
+    .status.ready { color: var(--success); }
+    .status.error { color: #f87171; }
+    .status .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent-light); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .results-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .result-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .result-card .head-name {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .result-card .prediction {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .result-card .label {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent-light);
+    }
+    .result-card .confidence {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .result-card .bar {
+      margin-top: 6px;
+      height: 4px;
+      background: var(--bg);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .result-card .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .result-card.risk .label { font-size: 14px; }
+    .result-card.risk .risk-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      font-size: 13px;
+    }
+    .result-card.risk .risk-item .rlabel { color: var(--text-muted); }
+    .result-card.risk .risk-item .rscore { color: var(--accent-light); font-weight: 600; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .examples button {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .examples button:hover { border-color: var(--accent); color: var(--text); }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: auto;
+    }
+    footer a { color: var(--accent-light); text-decoration: none; }
+
+    @media (max-width: 768px) {
+      .demo-grid { grid-template-columns: 1fr; }
+      .hero h2 { font-size: 22px; }
+      header .subtitle { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container" style="display:flex;align-items:center;gap:12px;">
+      <a href="https://github.com/eulogik/pico-type" target="_blank" rel="noopener" style="display:flex;">
+        <img src="logo.png" alt="pico-type logo" style="height:32px;" />
+      </a>
+      <h1><a href="https://github.com/eulogik/pico-type" target="_blank" rel="noopener">pico-type</a></h1>
+      <span class="subtitle">In-browser inference via ONNX Runtime Web</span>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="badge">&#9889; Runs entirely in your browser &mdash; no server</div>
+    <h2>Try Pico-Type</h2>
+    <p>Paste any text, code, or file content below. The model classifies it into 7 categories from raw bytes, right in your browser.</p>
+  </div>
+
+  <div class="demo-grid">
+    <div>
+      <div class="input-panel">
+        <label for="input-text">Input Content</label>
+        <textarea id="input-text" placeholder="Paste or type content to classify... (up to 1024 bytes)"></textarea>
+
+        <div class="controls">
+          <select id="tier-select">
+            <option value="tiny">Tiny (16d)</option>
+            <option value="small">Small (64d)</option>
+            <option value="base" selected>Base (192d)</option>
+            <option value="pro">Pro (576d)</option>
+          </select>
+          <button class="btn btn-primary" id="classify-btn" disabled>Classify</button>
+          <button class="btn btn-outline" id="clear-btn">Clear</button>
+        </div>
+
+        <div class="status" id="load-status">
+          <span class="spinner"></span>
+          Loading model (~9MB)... <span id="load-progress">0%</span>
+        </div>
+
+        <div class="examples">
+          <button data-text='def hello():\n    print("Hello, world!")'>Python</button>
+          <button data-text='<html><body><h1>Hi</h1></body></html>'>HTML</button>
+          <button data-text='{"name": "pico", "version": "0.1.9"}'>JSON</button>
+          <button data-text='The quick brown fox jumps over the lazy dog.'>English</button>
+          <button data-text='fn main() {\n    println!("Hello!");\n}'>Rust</button>
+          <button data-text='#!/bin/bash\necho "hello"'>Bash</button>
+          <button data-text='SELECT * FROM users WHERE id = 1;'>SQL</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="results-panel" id="results">
+        <div class="empty-state">
+          <div class="icon">&#128225;</div>
+          <p>Enter content and click <strong>Classify</strong> to see results across 7 heads.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      <a href="https://eulogik.com" target="_blank" rel="noopener">Eulogik</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://github.com/eulogik/pico-type" target="_blank" rel="noopener">GitHub</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://pypi.org/project/pico-type/" target="_blank" rel="noopener">PyPI</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://huggingface.co/eulogik/pico-type" target="_blank" rel="noopener">HuggingFace</a>
+    </p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+  <script>
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+
+    const LABELS = {
+      coarse: ["text","code","link","image","file","config","markup","data","error","secret","archive","binary"],
+      modality: ["textual","binary_image","binary_archive","binary_executable","binary_document","binary_audio","binary_video","binary_other"],
+      subtype: ["json","yaml","toml","ini","csv","tsv","xml","html","markdown","rst","asciidoc","tex","sql","graphql","protobuf","msgpack","log","diff","patch","env","shell","makefile","dockerfile","gitignore"],
+      code_lang: ["python","javascript","typescript","jsx","tsx","java","kotlin","scala","groovy","clojure","c","cpp","csharp","fsharp","objectivec","go","rust","zig","ruby","php","perl","lua","tcl","swift","dart","julia","nim","crystal","haskell","ocaml","elm","erlang","elixir","lisp","scheme","racket","r","matlab","octave","sas","stata","sql","plsql","tsql","html","css","scss","sass","less","bash","zsh","fish","powershell","vim","fortran","cobol","ada","pascal","delphi","vb","prolog","vhdl"],
+      text_lang: ["en","es","fr","de","it","pt","nl","sv","no","da","fi","pl","cs","sk","hu","ro","el","tr","ru","uk","bg","sr","hr","zh","ja","ko","vi","th","id","hi"],
+      file_mime: ["application/pdf","application/zip","application/gzip","application/x-tar","application/x-7z-compressed","application/x-rar-compressed","application/x-bzip2","application/x-xz","application/json","application/xml","application/yaml","application/octet-stream","application/x-executable","application/x-mach-binary","application/x-elf","application/x-deb","application/x-rpm","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-excel","application/vnd.ms-powerpoint","application/msword","application/rtf","application/epub+zip","application/x-ndjson","text/plain","text/csv","text/html","text/xml","text/markdown","image/png","image/jpeg","image/gif","image/webp","image/svg+xml","image/bmp","image/tiff","image/heic","image/heif","image/avif","image/x-icon","image/vnd.adobe.photoshop","video/mp4","video/webm","video/x-matroska","video/quicktime","video/x-msvideo","video/x-flv","video/x-mpeg","audio/mpeg","audio/ogg","audio/wav","audio/flac","audio/aac","audio/x-m4a","audio/webm","audio/midi","font/ttf","font/otf","font/woff","font/woff2","application/x-sqlite3","application/x-parquet","application/x-protobuf","application/x-flatbuffers","application/x-cpio","application/x-iso9660-image","application/vnd.android.package-archive","application/x-jar","application/x-python-bytecode","application/x-archive","application/pgp-encrypted","application/pgp-signature","application/x-x509-ca-cert","application/x-pem-file","application/vnd.tcpdump.pcap","application/java-vm","application/x-matlab-data","application/x-shockwave-flash","application/x-font-ttf","application/x-font-otf","application/wasm","application/x-ruby","application/javascript","application/ecmascript","application/x-bittorrent","application/x-dvi","chemical/x-mdl-sdfile","application/x-lzma"],
+      risk: ["api_key","jwt","ssh_key","password","email","phone"]
+    };
+    const HEAD_NAMES = {coarse:"Coarse Type",modality:"Modality",subtype:"Subtype",code_lang:"Code Language",text_lang:"Text Language",file_mime:"File MIME",risk:"Risk Flags"};
+    const HEADS = ["coarse","modality","subtype","code_lang","text_lang","file_mime","risk"];
+
+    let session = null;
+    let isLoading = false;
+
+    function softmax(logits) {
+      const max = logits.reduce((a,b) => Math.max(a,b), -Infinity);
+      const exps = logits.map(x => Math.exp(x - max));
+      const sum = exps.reduce((a,b) => a + b, 0);
+      return exps.map(x => x / sum);
+    }
+
+    function textToIds(text) {
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(text).slice(0, 1024);
+      const ids = new Array(1024).fill(0);
+      const mask = new Array(1024).fill(false);
+      for (let i = 0; i < bytes.length; i++) {
+        ids[i] = bytes[i];
+        mask[i] = true;
+      }
+      return { ids, mask };
+    }
+
+    async function loadModel(tier) {
+      const statusEl = document.getElementById('load-status');
+      const btn = document.getElementById('classify-btn');
+      const progress = document.getElementById('load-progress');
+
+      if (session) {
+        try { session.release(); } catch(e) {}
+        session = null;
+      }
+
+      statusEl.className = 'status loading';
+      statusEl.innerHTML = '<span class="spinner"></span> Loading model (~9MB)... <span id="load-progress">0%</span>';
+      btn.disabled = true;
+
+      const modelUrl = `https://huggingface.co/eulogik/pico-type/resolve/main/picotype_${tier}.onnx`;
+
+      try {
+        session = await ort.InferenceSession.create(modelUrl, {
+          executionProviders: ['wasm'],
+          enableProfiling: false,
+          logSeverityLevel: 3,
+        });
+        statusEl.className = 'status ready';
+        statusEl.textContent = `\u2705 Model loaded (${tier}) \u2014 ready to classify`;
+        btn.disabled = false;
+      } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = `\u274c Failed to load: ${err.message}`;
+        btn.disabled = true;
+      }
+    }
+
+    async function classify() {
+      if (!session) return;
+      const textEl = document.getElementById('input-text');
+      const text = textEl.value;
+      if (!text.trim()) return;
+
+      const btn = document.getElementById('classify-btn');
+      btn.disabled = true;
+      btn.textContent = 'Classifying...';
+
+      try {
+        const { ids, mask } = textToIds(text);
+        const inputIds = new ort.Tensor('int64', ids, [1, 1024]);
+        const attnMask = new ort.Tensor('bool', mask, [1, 1024]);
+
+        const feeds = { input_ids: inputIds, attention_mask: attnMask };
+        const results = await session.run(feeds);
+
+        const resultData = {};
+        for (const head of HEADS) {
+          const logits = results[head].data;
+          const probs = softmax(Array.from(logits));
+          const labels = LABELS[head];
+          resultData[head] = labels.map((l, i) => ({ label: l, prob: probs[i] }))
+            .sort((a, b) => b.prob - a.prob);
+        }
+
+        renderResults(resultData);
+      } catch (err) {
+        const resultsEl = document.getElementById('results');
+        resultsEl.innerHTML = `<div class="result-card" style="text-align:center;padding:24px;color:#f87171;">
+          <div style="font-size:24px;margin-bottom:8px;">\u274c</div>
+          <p>Inference failed: ${err.message}</p>
+        </div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Classify';
+      }
+    }
+
+    function renderResults(data) {
+      const el = document.getElementById('results');
+      let html = '';
+      for (const head of HEADS) {
+        const items = data[head];
+        const top = items[0];
+        const isRisk = head === 'risk';
+
+        html += `<div class="result-card${isRisk ? ' risk' : ''}">`;
+        html += `<div class="head-name">${HEAD_NAMES[head]}</div>`;
+
+        if (isRisk) {
+          html += '<div>';
+          for (const item of items) {
+            html += `<div class="risk-item"><span class="rlabel">${item.label}</span><span class="rscore">${(item.prob * 100).toFixed(1)}%</span></div>`;
+          }
+          html += '</div>';
+        } else {
+          html += `<div class="prediction">`;
+          html += `<span class="label">${top.label}</span>`;
+          html += `<span class="confidence">${(top.prob * 100).toFixed(1)}%</span>`;
+          html += `</div>`;
+          html += `<div class="bar"><div class="bar-fill" style="width:${(top.prob * 100).toFixed(1)}%"></div></div>`;
+        }
+
+        html += `</div>`;
+      }
+      el.innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const textEl = document.getElementById('input-text');
+      const tierSelect = document.getElementById('tier-select');
+      const classifyBtn = document.getElementById('classify-btn');
+      const clearBtn = document.getElementById('clear-btn');
+
+      // Example buttons
+      document.querySelectorAll('.examples button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          textEl.value = btn.dataset.text;
+        });
+      });
+
+      classifyBtn.addEventListener('click', classify);
+
+      clearBtn.addEventListener('click', () => {
+        textEl.value = '';
+        document.getElementById('results').innerHTML = `<div class="empty-state">
+          <div class="icon">&#128225;</div>
+          <p>Enter content and click <strong>Classify</strong> to see results across 7 heads.</p>
+        </div>`;
+      });
+
+      textEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          classify();
+        }
+      });
+
+      tierSelect.addEventListener('change', () => {
+        loadModel(tierSelect.value);
+      });
+
+      // Start loading the default model
+      loadModel(tierSelect.value);
+    });
+  </script>
+</body>
+</html>

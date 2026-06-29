@@ -57,3 +57,6 @@ desktop.ini
 
 # --- HF repo clones (accidental) ---
 pico-type/
+
+# --- Promotion materials (not part of source) ---
+PROMOTE.md

@@ -26,6 +26,6 @@
     "file_mime": 90,
     "risk": 6
   },
-  "max_bytes": 2048,
+  "max_bytes": 1024,
   "opset": 18
 }

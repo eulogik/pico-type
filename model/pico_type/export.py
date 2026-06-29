@@ -99,6 +99,7 @@ def export_to_onnx(
         (dummy_ids, dummy_mask),
         path,
         opset_version=opset,
+        external_data=False,
         input_names=["input_ids", "attention_mask"],
         output_names=list(ALL_HEADS),
         dynamic_shapes=(
