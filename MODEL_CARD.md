@@ -117,10 +117,10 @@ _Diverse training improved real-world accuracy from 23% to 52%._
 
 | Tier | Dim | Params | ONNX Size | Speed |
 |------|-----|--------|-----------|-------|
-| tiny | 16 | 1.43M | 207 KB | ~3ms |
-| small | 64 | 1.45M | 207 KB | ~4ms |
-| base | 192 | 1.48M | 209 KB | ~5ms |
-| pro | 576 | 1.56M | 206 KB | ~12ms |
+| tiny | 16 | 1.43M | 8.7 MB | ~3ms |
+| small | 64 | 1.45M | 8.7 MB | ~4ms |
+| base | 192 | 1.48M | 8.8 MB | ~5ms |
+| pro | 576 | 1.56M | 9.1 MB | ~12ms |
 
 ## Training
 

@@ -194,7 +194,7 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 - **Eval results (1000 samples, base tier, 5.6ms)**:
   - coarse 100%, modality 100%, subtype **98.4%**, code_lang **53.9%**, text_lang **100%**, file_mime 100%, risk mAP 100%
   - code_lang improved **+9.9%** (43.96% → 53.85%) via real GitHub code samples
-- **ONNX export**: All 4 tiers re-exported from best.pt (~207-209 KB on disk with external data, opset 18).
+- **ONNX export**: All 4 tiers re-exported from best.pt (~9 MB each, self-contained single file, opset 18, `external_data=False`).
 - **HF Model**: `huggingface.co/eulogik/pico-type` — ONNX models at root level + checkpoints/ directory, model card, paper scaffold.
 - **HF Space**: `huggingface.co/spaces/eulogik/pico-type` — Gradio app **label lists fixed** (Jun 18 2026). Root cause: `gradio_app.py` had different label ordering than `labels.py` (text_lang had `"ar","hi"` instead of `"id","ms"`; file_mime was completely different set). Also fixed `np.bool_`→`bool` for NumPy 2.x compat (Space runs Python 3.13).
 - **PyPI**: `pico-type` v0.1.3 published at https://pypi.org/project/pico-type/0.1.3/.

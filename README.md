@@ -195,6 +195,7 @@ All tiers share the same trunk; only the final linear layers differ. Switch tier
 | GitHub | [eulogik/pico-type](https://github.com/eulogik/pico-type) |
 | PyPI | `pip install pico-type` |
 | Zenodo | [10.5281/zenodo.20758542](https://doi.org/10.5281/zenodo.20758542) |
+| Browser Demo | [eulogik.github.io/pico-type/demo.html](https://eulogik.github.io/pico-type/demo.html) |
 
 ## 📚 Documentation
 

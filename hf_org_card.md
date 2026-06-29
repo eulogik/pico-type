@@ -23,7 +23,7 @@ sdk: static
 
 ### [pico-type](https://huggingface.co/eulogik/pico-type) 🔍
 
-Tiny byte-level multi-head content classifier — ~1.5M params, ~209KB ONNX, <6ms inference.
+Tiny byte-level multi-head content classifier — ~1.5M params, ~9MB ONNX, <6ms inference.
 Classifies any content into 7 categories from raw bytes.
 
 **[→ Try the Space](https://huggingface.co/spaces/eulogik/pico-type)**
