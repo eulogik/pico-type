@@ -188,14 +188,17 @@ All tiers share the same trunk; only the final linear layers differ. Switch tier
 
 ## 🌐 Deployment
 
-| Platform | URL |
-|----------|-----|
-| HuggingFace Space | [eulogik/pico-type](https://huggingface.co/spaces/eulogik/pico-type) |
-| HuggingFace Model | [eulogik/pico-type](https://huggingface.co/eulogik/pico-type) |
-| GitHub | [eulogik/pico-type](https://github.com/eulogik/pico-type) |
-| PyPI | `pip install pico-type` |
-| Zenodo | [10.5281/zenodo.20758542](https://doi.org/10.5281/zenodo.20758542) |
-| Browser Demo | [eulogik.github.io/pico-type/demo.html](https://eulogik.github.io/pico-type/demo.html) |
+[![PyPI](https://img.shields.io/pypi/v/pico-type?color=blue)](https://pypi.org/project/pico-type/)
+[![GitHub](https://img.shields.io/badge/GitHub-eulogik/pico--type-181717?logo=github)](https://github.com/eulogik/pico-type)
+[![HuggingFace Model](https://img.shields.io/badge/HuggingFace-Model-orange)](https://huggingface.co/eulogik/pico-type)
+[![Browser Demo](https://img.shields.io/badge/Browser-Demo-success)](https://eulogik.github.io/pico-type/demo.html)
+[![Zenodo](https://img.shields.io/badge/Zenodo-10.5281/zenodo.20758542-blue)](https://doi.org/10.5281/zenodo.20758542)
+
+- **PyPI**: `pip install pico-type`
+- **GitHub**: [eulogik/pico-type](https://github.com/eulogik/pico-type)
+- **HuggingFace Model**: [eulogik/pico-type](https://huggingface.co/eulogik/pico-type)
+- **Browser Demo**: [eulogik.github.io/pico-type/demo.html](https://eulogik.github.io/pico-type/demo.html)
+- **Zenodo**: [10.5281/zenodo.20758542](https://doi.org/10.5281/zenodo.20758542)
 
 ## 📚 Documentation
 
