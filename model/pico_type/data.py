@@ -869,6 +869,47 @@ _TEXT_WORDS: Dict[str, List[str]] = {
 }
 
 
+class AugmentedGenerator:
+    """Wraps SyntheticGenerator with byte-level augmentations for robustness."""
+
+    def __init__(self, seed: int = 42, aug_prob: float = 0.3):
+        self.gen = SyntheticGenerator(seed)
+        self.rng = random.Random(seed + 1)
+        self.aug_prob = aug_prob
+
+    def __call__(self) -> Sample:
+        sample = self.gen()
+        if self.rng.random() < self.aug_prob:
+            sample = self._augment(sample)
+        return sample
+
+    def _augment(self, s: Sample) -> Sample:
+        kind = self.rng.choice(["byte_flip", "truncate", "pad", "swap_case", "insert_noise"])
+        data = bytearray(s.data)
+        if kind == "byte_flip" and len(data) > 4:
+            idx = self.rng.randint(0, len(data) - 1)
+            data[idx] = self.rng.randint(0, 255)
+        elif kind == "truncate" and len(data) > 32:
+            cut = self.rng.randint(len(data) // 2, len(data) - 1)
+            data = data[:cut]
+        elif kind == "pad":
+            pad_len = self.rng.randint(1, min(32, MAX_BYTES - len(data)))
+            data.extend(b" " * pad_len)
+        elif kind == "swap_case":
+            for i in range(len(data)):
+                if self.rng.random() < 0.1:
+                    c = data[i]
+                    if 0x41 <= c <= 0x5A:
+                        data[i] = c + 0x20
+                    elif 0x61 <= c <= 0x7A:
+                        data[i] = c - 0x20
+        elif kind == "insert_noise" and len(data) > 4:
+            idx = self.rng.randint(0, len(data) - 1)
+            noise = bytes([self.rng.randint(0x20, 0x7E)])
+            data = data[:idx] + noise + data[idx + 1:]
+        return Sample(data=bytes(data), **s.label_dict())
+
+
 class SyntheticDataset:
     """Dataset that wraps the generator, produces N unique samples."""
 
