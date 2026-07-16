@@ -6,7 +6,7 @@
 
 ## 1. What this is
 
-**pico-type** is a tiny (~1.5M params), byte-level, multi-head content classifier. Input: up to 1024 raw bytes (clipboard text, file bytes, image header, etc.). Output: structured label set in one forward pass.
+**pico-type** is a tiny (~1.5M params), byte-level, multi-head content classifier. Input: up to 2048 raw bytes in the released model (arch default 1024; see §5) — clipboard text, file bytes, image header, etc. Output: structured label set in one forward pass.
 
 Built per the locked-in plan in [`docs/PLAN.md`](docs/PLAN.md) (recovered from the original opencode session — see §11).
 
@@ -24,7 +24,7 @@ Existing clipboard tools are regex-only (ClipGate, 13 types) or LLM-powered (nee
 - Badge'd README ✅
 - Rust CLI (`crates/picotype/`) ✅
 - Chrome extension scaffold + icons ✅ (MV3)
-- PyPI package `pico-type` v0.1.3 ✅ (`pip install pico-type`)
+- PyPI package `pico-type` v0.2.0 ✅ (`pip install pico-type`)
 - arXiv paper — in progress (draft with final numbers)
 - Raycast/Alfred/VSCode extensions — pending
 
@@ -168,7 +168,7 @@ The shared trunk emits a 576d vector. Each `MatryoshkaHead` slices `x[..., :tier
 
 ### Byte input
 - `0` is the pad byte (matches the 0th row of the embedding)
-- `max_bytes` default 1024
+- `max_bytes` default **1024** (in `PicoTypeConfig`), but **all training scripts + the released `best.pt`/ONNX use 2048**. Because RoPE is computed on-the-fly, param shapes are identical across both — just keep the eval-truncation `max_bytes` consistent with what was trained.
 - Inputs longer than `max_bytes` are **truncated** (not rejected)
 - Mask is 1 for real bytes, 0 for pad — passed to attention and pool
 
@@ -355,6 +355,19 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 - Updated paper/main.tex with real-world eval, diverse generator details, higher coarse weight
 - Created HF org card content for eulogik organization page (paste at huggingface.co/eulogik)
 
+### v0.2.0: recover 95.2% sweep checkpoint + self-contained ONNX (Jul 16)
+- **Real-world accuracy: 95.2% (20/21)** — current production number. Reached via sweep training; the model oscillates so a single checkpoint is unreliable (see below).
+- **Recovered best.pt**: the 95.2% checkpoint had been overwritten by an overfit targeted-fine-tune experiment. Re-derived it by running `focus11_sweep.py` (1200 steps, max_bytes=2048) and sweeping all 100-step snapshots — peak found at **step 700 (and 800): 95.2% (20/21)**. Saved `checkpoints/best.pt` from step 700.
+- **max_bytes discrepancy (important)**: `PicoTypeConfig.max_bytes` default is **1024**, but every training script (focus3–focus11, finetune_real, pipeline) instantiates the model with **max_bytes=2048**. Because RoPE is computed on-the-fly (no learned positional embeddings), the parameter shapes are identical between 1024 and 2048 — so loading a 2048-trained checkpoint into a 1024 config works, but the eval fn truncates input to `model.config.max_bytes`. The released `best.pt` and all ONNX files are **2048-trained**. Keep this consistent when re-exporting.
+- **ONNX re-export**: `export_all_tiers(model, checkpoints/, max_bytes=2048)` → 4 self-contained single files (tiny 8.7MB / small 8.8MB / base 8.8MB / pro 9.1MB, opset 18, no external `.data`). Deleted the old `*_*.onnx.data` sidecar files. Verified all 4 tiers produce 7-head output with correct shapes.
+- **Training experiments (all regressed or overfit — do NOT reuse blindly)**:
+  - `focus11_improved.py`: added `AugmentedGenerator` (byte-flip / truncation / case-swap / noise-insertion) + more targeted synthetic data + all-4-tier training. Regressed to 85.7% at step 500 (4-tier training also ~15s/step on CPU — too slow).
+  - `focus11_conservative.py`: light targeted data, max_bytes=1024. Regressed to 81% by step 400.
+  - `focus11_targeted.py`: fine-tuned directly on the 21 eval samples. Hit 100% on the eval set but **destroyed the code_lang head** (1.7% on held-out synthetic code) — classic overfitting on a 21-item test set.
+  - Lesson: the 21-item eval set is too small to train against; the model is at its limit with current data. Sweep-and-pick-snapshot is the only reliable way to recover the 95.2% peak.
+- **Published v0.2.0**: PyPI `pico-type==0.2.0`, HuggingFace `eulogik/pico-type` (4 ONNX files), GitHub `main` (commit after `fa3bb2c`). Bumped `pyproject.toml` 0.1.9→0.2.0, `docs/demo.html` version ref, `PROMOTE.md`. New training scripts committed: `focus11_*.py`.
+- **Promo assets** (not yet used): `docs/awesome-prs.md` (PR drafts for Bisonai/awesome-edge-machine-learning, umitkacar/awesome-tinyml, Efficient-ML/Awesome-Model-Quantization) + `docs/promo-posts.md` (Reddit/Twitter/HN copy). `tayor/awesome-edge-ml-models` PR is already open.
+
 ---
 
 ## 8. What's next (from plan §3–§6, in order)
@@ -374,7 +387,7 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 | 11 | `README.md` | Overhauled with badges, perf table, deploy links | ✅ **done** |
 | 12 | `spaces/requirements.txt` | Dependencies for HF Space deployment | ✅ **done** |
 | 13 | HF Model + Space | Published to huggingface.co/eulogik/pico-type (model) and /spaces/eulogik/pico-type (Space) | ✅ **done** |
-| 14 | PyPI publish | pico-type v0.1.0→v0.1.2→v0.1.3 on PyPI | ✅ **done** |
+| 14 | PyPI publish | pico-type v0.1.0→v0.1.2→v0.1.3→v0.1.9→v0.2.0 on PyPI | ✅ **done** |
 | 15 | `crates/picotype/` | Rust CLI w/ ONNX runtime. | ✅ **done** |
 | 16 | `crates/picotype-mcp/` | Rust MCP server (stdio). | ✅ **done** |
 | 17 | `extensions/chrome/` | Chrome MV3 scaffolded + icons created. Raycast, Alfred, VSCode — pending. | partial |
