@@ -80,7 +80,7 @@ def test_synthetic_dataset():
 @pytest.mark.skipif(not os.path.exists(os.path.join(ONNX_DIR, "checkpoints", "picotype_base.onnx")), reason="ONNX model not found")
 def test_onnx_inference():
     session = load_onnx_model("base", os.path.join(ONNX_DIR, "checkpoints"))
-    text = "def hello(): pass"
+    text = b"def hello(): pass"
     result = run_onnx(session, text)
     for head in ["coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime"]:
         assert head in result, f"missing {head}"
