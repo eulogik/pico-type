@@ -60,3 +60,10 @@ pico-type/
 
 # --- Promotion materials (not part of source) ---
 PROMOTE.md
+
+# --- Secrets / credentials (defensive) ---
+*.token
+*.pem
+credentials.json
+.netrc
+*_secrets.*
