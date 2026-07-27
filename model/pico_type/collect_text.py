@@ -1,4 +1,4 @@
-"""Collect real text samples for training/distillation."""
+"""Collect real text samples from Wikipedia (323 langs, clean, public)."""
 
 from __future__ import annotations
 
@@ -7,101 +7,109 @@ import random
 from pathlib import Path
 from typing import Dict, List
 
-from model.pico_type.data import TEXT_LANG_LABELS, LABEL_MAP_TEXT
-
 CACHE_DIR = Path(__file__).parent / "data" / "real"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Map ISO codes to OSCAR/CommonCrawl language codes
-ISO_TO_DATASET_LANG = {
-    "en": "en", "es": "es", "fr": "fr", "de": "de",
-    "it": "it", "pt": "pt", "ru": "ru",
-    "zh": "zh", "ja": "ja", "ko": "ko",
-    "ar": "ar", "hi": "hi", "bn": "bn",
-    "ur": "ur", "vi": "vi", "th": "th",
-    "id": "id", "ms": "ms", "tl": "tl",
-    "sw": "sw",
-}
-
-SUPPORTED_LANGS = set(TEXT_LANG_LABELS) & set(ISO_TO_DATASET_LANG.keys())
+TEXT_LANGS = [
+    "en", "es", "fr", "de", "it", "pt", "nl", "sv", "no", "da",
+    "fi", "pl", "cs", "sk", "hu", "ro", "el", "tr",
+    "ru", "uk", "bg", "sr", "hr",
+    "zh", "ja", "ko", "vi", "th", "id", "ms",
+]
+WIKIPEDIA_PREFIX = "20231101"
 
 
-def collect_from_oscar(
-    num_samples: int = 5000,
+def collect_text(
+    num_samples: int = 10000,
     max_length: int = 1024,
     seed: int = 42,
 ) -> List[Dict]:
-    """Collect text samples from OSCAR/CommonCrawl."""
     rng = random.Random(seed)
     samples: List[Dict] = []
-    per_lang = max(1, num_samples // len(SUPPORTED_LANGS))
+    counts: Dict[str, int] = {}
+    base = max(1, num_samples // len(TEXT_LANGS))
+    targets = {lang: base for lang in TEXT_LANGS}
+    for popular in ["en", "es", "fr", "de", "zh", "ja", "ru"]:
+        if popular in targets:
+            targets[popular] = int(targets[popular] * 1.5)
 
     try:
         from datasets import load_dataset
 
-        lang_counts: Dict[str, int] = {}
-        for iso_lang in SUPPORTED_LANGS:
-            ds_lang = ISO_TO_DATASET_LANG[iso_lang]
+        for iso_lang in TEXT_LANGS:
+            needed = targets[iso_lang]
+            if needed <= 0:
+                continue
+            config = f"{WIKIPEDIA_PREFIX}.{iso_lang}"
             try:
                 ds = load_dataset(
-                    "oscar-corpus/OSCAR-2301",
-                    language=ds_lang,
-                    split="train",
-                    streaming=True,
-                    trust_remote_code=True,
+                    "wikimedia/wikipedia", config, split="train", streaming=True
                 )
-                needed = per_lang - lang_counts.get(iso_lang, 0)
-                count = 0
-                for example in ds:
-                    text = example.get("text", "")
-                    if not text or len(text.strip()) < 20:
-                        continue
-                    if len(text.encode("utf-8")) > max_length:
-                        text = text[:max_length]
-                    samples.append({"data": text.encode("utf-8"), "language": iso_lang})
-                    lang_counts[iso_lang] = lang_counts.get(iso_lang, 0) + 1
-                    count += 1
-                    if count >= needed:
-                        break
             except Exception as e:
-                print(f"  {iso_lang}: error - {e}")
-            if len(samples) >= num_samples:
-                break
-    except ImportError:
-        print("datasets not installed. Install with: pip install datasets")
+                # Try alternate codes
+                alt = {"no": "nb", "hr": "sh", "sr": "sh"}.get(iso_lang)
+                if alt:
+                    config = f"{WIKIPEDIA_PREFIX}.{alt}"
+                    try:
+                        ds = load_dataset(
+                            "wikimedia/wikipedia", config, split="train", streaming=True
+                        )
+                    except Exception as e2:
+                        print(f"  {iso_lang}: {e2}")
+                        continue
+                else:
+                    print(f"  {iso_lang}: {e}")
+                    continue
+
+            count = 0
+            for example in ds:
+                text = example.get("text", "")
+                if not text or len(text.strip()) < 50:
+                    continue
+                data = text.encode("utf-8")[:max_length]
+                samples.append({"data": data, "language": iso_lang})
+                counts[iso_lang] = counts.get(iso_lang, 0) + 1
+                count += 1
+                if count >= needed:
+                    break
+            print(f"  {iso_lang}: {count} samples")
+
     except Exception as e:
         print(f"Error: {e}")
 
     rng.shuffle(samples)
+    print(f"\nCollected {len(samples)} samples across {len(counts)}/{len(TEXT_LANGS)} langs")
+    for lang, c in sorted(counts.items(), key=lambda x: -x[1])[:15]:
+        print(f"  {lang:5s}: {c}")
+    missing = set(TEXT_LANGS) - set(counts)
+    if missing:
+        print(f"Missing: {sorted(missing)}")
     return samples[:num_samples]
 
 
-def save_samples(samples: List[Dict], name: str = "text"):
+def save(samples, name="text"):
     path = CACHE_DIR / f"{name}_samples.json"
-    serializable = [(s["data"].hex(), s["language"]) for s in samples]
     with open(path, "w") as f:
-        json.dump(serializable, f)
-    print(f"Saved {len(samples)} {name} samples to {path}")
-    return path
+        json.dump([(s["data"].hex(), s["language"]) for s in samples], f)
+    print(f"Saved {len(samples)} samples to {path}")
 
 
-def load_samples(name: str = "text") -> List[Dict]:
+def load(name="text"):
     path = CACHE_DIR / f"{name}_samples.json"
     if not path.exists():
         return []
     with open(path) as f:
-        data = json.load(f)
-    return [{"data": bytes.fromhex(h), "lang": lang} for h, lang in data]
+        return [{"data": bytes.fromhex(h), "language": lang} for h, lang in json.load(f)]
 
 
-def collect_and_save(num_samples: int = 5000):
-    print(f"Collecting {num_samples} real text samples...")
-    samples = collect_from_oscar(num_samples=num_samples)
+def run(num_samples=10000):
+    print(f"\n=== Collecting {num_samples} text samples from Wikipedia ===")
+    samples = collect_text(num_samples=num_samples)
     if samples:
-        save_samples(samples)
-    print(f"Got {len(samples)} samples across {len(set(s['language'] for s in samples))} languages")
+        save(samples)
     return samples
 
 
 if __name__ == "__main__":
-    collect_and_save(2500)
+    import sys
+    run(int(sys.argv[1]) if len(sys.argv) > 1 else 10000)

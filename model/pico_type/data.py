@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
+import os
 import random
 import re
 import string
@@ -883,6 +885,92 @@ class SyntheticDataset:
                 risk_counter[RISK_LABELS[r]] = risk_counter.get(RISK_LABELS[r], 0) + 1
         counts["risk"] = risk_counter
         return {head: dict(cnt) for head, cnt in counts.items()}
+
+
+class RealDataset:
+    """Wraps collected real samples as Sample objects."""
+
+    def __init__(self, code_path: str = "", text_path: str = "", seed: int = 42):
+        self.samples: List[Sample] = []
+        rng = random.Random(seed)
+        gen = SyntheticGenerator(seed)
+
+        if code_path and os.path.exists(code_path):
+            with open(code_path) as f:
+                raw = json.load(f)
+            for data_hex, lang in raw:
+                data = bytes.fromhex(data_hex)
+                if len(data) > MAX_BYTES:
+                    data = data[:MAX_BYTES]
+                if len(data) < MIN_BYTES:
+                    continue
+                lang_idx = _CODE.get(lang, IGNORE_INDEX)
+                if lang_idx == IGNORE_INDEX:
+                    continue
+                self.samples.append(Sample(
+                    data=data,
+                    coarse=_COARSE["code"],
+                    modality=_MODALITY["textual"],
+                    code_lang=lang_idx,
+                    risk=gen._detect_risk(data),
+                ))
+            print(f"Loaded {len(self.samples)} real code samples")
+
+        if text_path and os.path.exists(text_path):
+            with open(text_path) as f:
+                raw = json.load(f)
+            ckpt = len(self.samples)
+            for data_hex, lang in raw:
+                data = bytes.fromhex(data_hex)
+                if len(data) > MAX_BYTES:
+                    data = data[:MAX_BYTES]
+                if len(data) < MIN_BYTES:
+                    continue
+                lang_idx = _TEXT.get(lang, IGNORE_INDEX)
+                if lang_idx == IGNORE_INDEX:
+                    continue
+                self.samples.append(Sample(
+                    data=data,
+                    coarse=_COARSE["text"],
+                    modality=_MODALITY["textual"],
+                    text_lang=lang_idx,
+                ))
+            print(f"Loaded {len(self.samples) - ckpt} real text samples")
+
+        rng.shuffle(self.samples)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        return self.samples[idx]
+
+
+class MixedDataset:
+    """Mixes real data with synthetic data at a specified ratio."""
+
+    def __init__(
+        self,
+        synthetic: SyntheticDataset,
+        real: RealDataset,
+        real_ratio: float = 0.5,
+        seed: int = 42,
+    ):
+        self.synthetic = synthetic
+        self.real = real
+        self.real_ratio = real_ratio
+        self.rng = random.Random(seed)
+
+    def __len__(self):
+        return max(len(self.synthetic), len(self.real))
+
+    def __getitem__(self, idx):
+        if len(self.real) > 0 and self.rng.random() < self.real_ratio:
+            return self.real[self.rng.randint(0, len(self.real) - 1)]
+        return self.synthetic[self.rng.randint(0, len(self.synthetic) - 1)]
+
+    def label_counts(self):
+        return self.synthetic.label_counts()
 
 
 def smoke_test() -> Dict[str, int]:

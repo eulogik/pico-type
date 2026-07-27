@@ -15,7 +15,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
 from .arch import PicoType, PicoTypeConfig
-from .data import IGNORE_INDEX, MAX_BYTES, Sample, SyntheticGenerator, SyntheticDataset
+from .data import IGNORE_INDEX, MAX_BYTES, Sample, SyntheticGenerator, SyntheticDataset, RealDataset, MixedDataset
 from .labels import HEAD_NUM_CLASSES
 
 ALL_HEADS = ("coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime", "risk")
@@ -55,6 +55,9 @@ class TrainConfig:
     tier: str = "base"
     train_tiers: Tuple[str, ...] = ("tiny", "small", "base", "pro")
     resume_from: str = ""
+    real_code_path: str = ""
+    real_text_path: str = ""
+    real_ratio: float = 0.5
 
 
 def collate_fn(batch: List[Sample]) -> Dict[str, torch.Tensor]:
@@ -157,7 +160,15 @@ def train(config: Optional[TrainConfig] = None) -> TrainConfig:
         config.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
     gen = SyntheticGenerator(seed=config.seed)
-    train_ds = SyntheticDataset(gen, config.train_size)
+    synt_ds = SyntheticDataset(gen, config.train_size)
+
+    if config.real_code_path or config.real_text_path:
+        real_ds = RealDataset(config.real_code_path, config.real_text_path, config.seed)
+        train_ds = MixedDataset(synt_ds, real_ds, config.real_ratio, config.seed)
+        print(f"Mixed dataset: {len(train_ds)} steps (real_ratio={config.real_ratio})")
+    else:
+        train_ds = synt_ds
+
     eval_ds = SyntheticDataset(SyntheticGenerator(seed=config.seed + 1), config.eval_size)
 
     train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=0)

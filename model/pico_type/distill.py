@@ -16,6 +16,8 @@ from .data import (
     IGNORE_INDEX,
     SyntheticGenerator,
     SyntheticDataset,
+    RealDataset,
+    MixedDataset,
 )
 from .labels import (
     HEAD_NUM_CLASSES,
@@ -35,6 +37,9 @@ class DistillConfig:
     temperature: float = 2.0
     freeze_teachers: bool = True
     backbone_only: bool = False
+    real_code_path: str = ""
+    real_text_path: str = ""
+    real_ratio: float = 0.5
     train_config: TrainConfig = field(default_factory=TrainConfig)
 
 
@@ -196,7 +201,12 @@ def distill_train(config: DistillConfig) -> DistillConfig:
     print(f"Teachers loaded: {list(teachers)}")
 
     gen = SyntheticGenerator(seed=cfg.seed)
-    train_ds = DistillDataset(gen, cfg.train_size, teachers, config.temperature, device)
+    synt_ds = SyntheticDataset(gen, cfg.train_size)
+    train_ds = synt_ds
+    if config.real_code_path or config.real_text_path:
+        real_ds = RealDataset(config.real_code_path, config.real_text_path, cfg.seed)
+        train_ds = MixedDataset(synt_ds, real_ds, config.real_ratio, cfg.seed)
+        print(f"Mixed dataset: {len(train_ds)} steps (real_ratio={config.real_ratio})")
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=0)
 
     model = PicoType(cfg.model_config).to(device)
