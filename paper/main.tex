@@ -1,11 +1,16 @@
 \documentclass[11pt,a4paper]{article}
 
-% --- arXiv: this MUST be the first line of the body ---
-\pdfoutput=1
+% --- arXiv / engine-agnostic PDF output ---
+\usepackage{iftex}
+\ifpdftex
+  \pdfoutput=1
+  \usepackage[pdftex,colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black]{hyperref}
+\else
+  \usepackage[xetex,colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black]{hyperref}
+\fi
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{hyperref}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{graphicx}
@@ -16,12 +21,7 @@
 \usepackage{tabularx}
 \usepackage{xcolor}
 
-\definecolor{citecolor}{rgb}{0.2,0.4,0.7}
 \hypersetup{
-  colorlinks=true,
-  linkcolor=citecolor,
-  citecolor=citecolor,
-  urlcolor=citecolor,
   pdftitle={pico-type: A 1.5M-Parameter Byte-Level Multi-Head Content Classifier},
   pdfauthor={eulogik},
   pdfkeywords={byte-level classification, multi-task learning, tiny models, on-device ML},
