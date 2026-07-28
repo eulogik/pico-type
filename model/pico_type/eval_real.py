@@ -119,7 +119,7 @@ def load_eval_set(name: str) -> list[dict]:
 
 
 def accuracy(predictions: list[str], labels: list[str]) -> float:
-    correct = sum(1 for p, l in zip(predictions, labels) if p == l)
+    correct = sum(1 for p, lbl in zip(predictions, labels) if p == lbl)
     return correct / max(len(labels), 1) * 100
 
 
