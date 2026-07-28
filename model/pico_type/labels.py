@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
-
 
 COARSE_LABELS = [
     "text", "code", "link", "image", "file", "config",
@@ -103,7 +102,7 @@ UNDETECTED = "undetected"
 
 ALL_HEADS = ("coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime", "risk")
 
-HEAD_NUM_CLASSES: Dict[str, int] = {
+HEAD_NUM_CLASSES: dict[str, int] = {
     "coarse": len(COARSE_LABELS),
     "modality": len(MODALITY_LABELS),
     "subtype": len(SUBTYPE_LABELS),
@@ -127,7 +126,7 @@ def _pick_with_threshold(
     logits: torch.Tensor,
     labels: list[str],
     threshold: float,
-) -> tuple[Optional[str], float]:
+) -> tuple[str | None, float]:
     probs = torch.softmax(logits, dim=-1)
     conf, idx = probs.max(dim=-1)
     if conf.item() < threshold:
@@ -136,11 +135,11 @@ def _pick_with_threshold(
 
 
 def decode_output(
-    logits: Dict[str, torch.Tensor],
+    logits: dict[str, torch.Tensor],
     tier: str = "base",
     undetected_threshold: float = 0.4,
     risk_threshold: float = 0.5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     coarse_idx = int(logits["coarse"].argmax(dim=-1).item())
     coarse = COARSE_LABELS[coarse_idx]
     coarse_conf = float(torch.softmax(logits["coarse"], dim=-1).max().item())
@@ -149,25 +148,25 @@ def decode_output(
     modality = MODALITY_LABELS[modality_idx]
     modality_conf = float(torch.softmax(logits["modality"], dim=-1).max().item())
 
-    subtype: Optional[str] = None
+    subtype: str | None = None
     if coarse in SUBTYPE_GATED_BY:
         subtype, _ = _pick_with_threshold(
             logits["subtype"], SUBTYPE_LABELS, undetected_threshold,
         )
 
-    code_lang: Optional[str] = None
+    code_lang: str | None = None
     if coarse in CODE_LANG_GATED_BY:
         code_lang, _ = _pick_with_threshold(
             logits["code_lang"], CODE_LANG_LABELS, undetected_threshold,
         )
 
-    text_lang: Optional[str] = None
+    text_lang: str | None = None
     if coarse in TEXT_LANG_GATED_BY:
         text_lang, _ = _pick_with_threshold(
             logits["text_lang"], TEXT_LANG_LABELS, undetected_threshold,
         )
 
-    file_mime: Optional[str] = None
+    file_mime: str | None = None
     if coarse in FILE_MIME_GATED_BY or modality in FILE_MIME_GATED_BY:
         file_mime, _ = _pick_with_threshold(
             logits["file_mime"], FILE_MIME_LABELS, undetected_threshold,

@@ -41,3 +41,6 @@ include = ["model*"]
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+
+[tool.ruff.lint]
+ignore = ["BLE001", "S110", "B008"]

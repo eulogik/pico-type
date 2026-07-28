@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Dict, List
 
 CACHE_DIR = Path(__file__).parent / "data" / "real"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -23,10 +22,10 @@ def collect_text(
     num_samples: int = 10000,
     max_length: int = 1024,
     seed: int = 42,
-) -> List[Dict]:
+) -> list[dict]:
     rng = random.Random(seed)
-    samples: List[Dict] = []
-    counts: Dict[str, int] = {}
+    samples: list[dict] = []
+    counts: dict[str, int] = {}
     base = max(1, num_samples // len(TEXT_LANGS))
     targets = {lang: base for lang in TEXT_LANGS}
     for popular in ["en", "es", "fr", "de", "zh", "ja", "ru"]:

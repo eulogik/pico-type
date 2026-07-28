@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 DATA_DIR = Path(__file__).parent / "data" / "real"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 

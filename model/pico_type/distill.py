@@ -4,20 +4,19 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 from torch.utils.data import DataLoader
 
 from .arch import PicoType
 from .data import (
     IGNORE_INDEX,
-    SyntheticGenerator,
-    SyntheticDataset,
-    RealDataset,
     MixedDataset,
+    RealDataset,
+    SyntheticDataset,
+    SyntheticGenerator,
 )
 from .labels import (
     HEAD_NUM_CLASSES,
@@ -50,7 +49,7 @@ class DistillDataset(SyntheticDataset):
         self,
         generator: SyntheticGenerator,
         size: int,
-        teachers: Optional[Dict[str, nn.Module]] = None,
+        teachers: dict[str, nn.Module] | None = None,
         temperature: float = 2.0,
         device: torch.device = torch.device("cpu"),
     ):
@@ -58,15 +57,15 @@ class DistillDataset(SyntheticDataset):
         self.teachers = teachers
         self.temperature = temperature
         self.device = device
-        self._soft_labels: Optional[Dict[str, torch.Tensor]] = None
+        self._soft_labels: dict[str, torch.Tensor] | None = None
 
-    def _ensure_soft(self) -> Dict[str, torch.Tensor]:
+    def _ensure_soft(self) -> dict[str, torch.Tensor]:
         if self._soft_labels is not None:
             return self._soft_labels
         if not self.teachers:
             return {}
         samples = self._ensure()
-        soft: Dict[str, List[torch.Tensor]] = {}
+        soft: dict[str, list[torch.Tensor]] = {}
         for sample in samples:
             text = sample.data.decode("utf-8", errors="replace")
             for head, teacher in self.teachers.items():
@@ -89,7 +88,7 @@ class DistillDataset(SyntheticDataset):
         return logits.detach().cpu()
 
     @staticmethod
-    def _tokenize(text: str, teacher: nn.Module, head: str) -> Dict:
+    def _tokenize(text: str, teacher: nn.Module, head: str) -> dict:
         try:
             from transformers import AutoTokenizer
         except ImportError:
@@ -106,7 +105,7 @@ class DistillLoss(nn.Module):
 
     def __init__(
         self,
-        weights: Dict[str, float],
+        weights: dict[str, float],
         alpha: float = 0.7,
         temperature: float = 2.0,
     ):
@@ -120,13 +119,13 @@ class DistillLoss(nn.Module):
 
     def forward(
         self,
-        student_logits: Dict[str, torch.Tensor],
-        labels: Dict[str, torch.Tensor],
-        teacher_logits: Optional[Dict[str, torch.Tensor]] = None,
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        student_logits: dict[str, torch.Tensor],
+        labels: dict[str, torch.Tensor],
+        teacher_logits: dict[str, torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         total = torch.zeros(1, device=next(iter(student_logits.values())).device)
-        individual: Dict[str, float] = {}
-        for head in student_logits:
+        individual: dict[str, float] = {}
+        for head in student_logits:  # noqa: PLC0206
             w = self.weights.get(head, 1.0)
             if head == "risk":
                 hard_loss = self.bce(student_logits[head], labels[head])
@@ -148,7 +147,7 @@ class DistillLoss(nn.Module):
 def build_teachers(
     device: torch.device,
     cache_dir: str = "",
-) -> Dict[str, nn.Module]:
+) -> dict[str, nn.Module]:
     """Download and load per-head teacher models from HuggingFace."""
     try:
         from transformers import AutoModelForSequenceClassification
@@ -157,7 +156,7 @@ def build_teachers(
 
     kwargs = {"cache_dir": cache_dir} if cache_dir else {}
 
-    teachers: Dict[str, nn.Module] = {}
+    teachers: dict[str, nn.Module] = {}
 
     try:
         teachers["coarse"] = AutoModelForSequenceClassification.from_pretrained(
@@ -257,8 +256,8 @@ def distill_train(config: DistillConfig) -> DistillConfig:
 
 
 def _batch_teacher_logits(
-    ds: DistillDataset, step: int, batch_size: int, device: torch.device, teachers: Dict[str, nn.Module]
-) -> Optional[Dict[str, torch.Tensor]]:
+    ds: DistillDataset, step: int, batch_size: int, device: torch.device, teachers: dict[str, nn.Module]
+) -> dict[str, torch.Tensor] | None:
     if not teachers:
         return None
     soft = ds._ensure_soft()

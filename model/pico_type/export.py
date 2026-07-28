@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Dict, Optional
 
 import torch
-import torch.nn as nn
+from torch import nn
 
-from .arch import PicoType, PicoTypeConfig, TIERS
+from .arch import TIERS, PicoType, PicoTypeConfig
 from .labels import ALL_HEADS, HEAD_NUM_CLASSES
 
 
@@ -60,7 +59,7 @@ def _tier_wrapper(model: PicoType, tier: str) -> nn.Module:
             })
             self.tier_dim = d
 
-        def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> Dict[str, torch.Tensor]:
+        def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> dict[str, torch.Tensor]:
             x = self.embed(input_ids.long())
             x = x.transpose(1, 2)
             for b in self.conv_blocks:
@@ -81,7 +80,7 @@ def export_to_onnx(
     output_dir: str,
     tier: str = "base",
     opset: int = 18,
-    max_bytes: Optional[int] = None,
+    max_bytes: int | None = None,
 ) -> str:
     model.eval()
     cfg = model.config
@@ -113,8 +112,8 @@ def export_all_tiers(
     model: PicoType,
     output_dir: str,
     opset: int = 18,
-    max_bytes: Optional[int] = None,
-) -> Dict[str, str]:
+    max_bytes: int | None = None,
+) -> dict[str, str]:
     paths = {}
     for tier in TIERS:
         p = export_to_onnx(model, output_dir, tier, opset, max_bytes)
@@ -134,10 +133,10 @@ def export_all_tiers(
 
 def quantize_dynamic(
     onnx_path: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
 ) -> str:
     try:
-        from onnxruntime.quantization import quantize_dynamic, QuantType
+        from onnxruntime.quantization import QuantType, quantize_dynamic
     except ImportError:
         raise ImportError("install onnx and onnxruntime: pip install onnx onnxruntime")
 
@@ -151,8 +150,8 @@ def export_with_quantization(
     output_dir: str,
     tier: str = "base",
     opset: int = 18,
-    max_bytes: Optional[int] = None,
-) -> Dict[str, str]:
+    max_bytes: int | None = None,
+) -> dict[str, str]:
     fp32_path = export_to_onnx(model, output_dir, tier, opset, max_bytes)
     int8_path = quantize_dynamic(fp32_path)
 
@@ -165,7 +164,7 @@ def export_with_quantization(
     return {"fp32": fp32_path, "int8": int8_path}
 
 
-def smoke_export(max_len: int = 128) -> Dict[str, int]:
+def smoke_export(max_len: int = 128) -> dict[str, int]:
     import tempfile
     cfg = PicoTypeConfig(max_bytes=max_len)
     model = PicoType(cfg).eval()

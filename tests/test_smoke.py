@@ -10,11 +10,19 @@ import sys
 import pytest
 import torch
 
-from model.pico_type.arch import PicoType, PicoTypeConfig, TIERS
-from model.pico_type.labels import ALL_HEADS, COARSE_LABELS, MODALITY_LABELS, CODE_LANG_LABELS, TEXT_LANG_LABELS, FILE_MIME_LABELS, RISK_LABELS, HEAD_NUM_CLASSES
-from model.pico_type.data import SyntheticGenerator, SyntheticDataset
+from model.pico_type.arch import TIERS, PicoType, PicoTypeConfig
 from model.pico_type.cli import load_onnx_model, run_onnx
-
+from model.pico_type.data import SyntheticDataset, SyntheticGenerator
+from model.pico_type.labels import (
+    ALL_HEADS,
+    COARSE_LABELS,
+    CODE_LANG_LABELS,
+    FILE_MIME_LABELS,
+    HEAD_NUM_CLASSES,
+    MODALITY_LABELS,
+    RISK_LABELS,
+    TEXT_LANG_LABELS,
+)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHECKPOINT = os.path.join(ROOT, "checkpoints", "best.pt")
@@ -97,6 +105,7 @@ def test_cli_stdin():
         input=b"print('hello')",
         capture_output=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, result.stderr.decode()
     out = json.loads(result.stdout)

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" font-family="Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="v1bar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#dc3545;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#e8898f;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="v2bar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#28a745;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#5cb85c;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+
+  <text x="350" y="28" text-anchor="middle" font-size="18" font-weight="bold" fill="#333">v0.1 → v0.2: Real Data Breakthrough</text>
+  <text x="350" y="46" text-anchor="middle" font-size="13" fill="#666">Code Language Detection (24 langs) · Text Language Detection (30 langs)</text>
+
+  <!-- Group: Code Language -->
+  <text x="130" y="80" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">Code Language</text>
+
+  <!-- v1 bar code -->
+  <rect x="20" y="95" width="227" height="36" rx="4" fill="url(#v1bar)"/>
+  <text x="30" y="118" font-size="14" font-weight="bold" fill="#fff">v0.1 (synthetic)</text>
+  <text x="257" y="118" font-size="14" font-weight="bold" fill="#dc3545">3.0%</text>
+
+  <!-- v2 bar code -->
+  <rect x="20" y="140" width="415" height="36" rx="4" fill="url(#v2bar)"/>
+  <text x="30" y="163" font-size="14" font-weight="bold" fill="#fff">v0.2 (real data)</text>
+  <text x="445" y="163" font-size="14" font-weight="bold" fill="#28a745">60.3%</text>
+
+  <!-- x2 arrow -->
+  <text x="640" y="158" font-size="13" fill="#333">20× improvement</text>
+  <line x1="620" y1="158" x2="600" y2="158" stroke="#28a745" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Group: Text Language -->
+  <text x="130" y="215" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">Text Language</text>
+
+  <!-- v1 bar text -->
+  <rect x="20" y="230" width="185" height="36" rx="4" fill="url(#v1bar)"/>
+  <text x="30" y="253" font-size="14" font-weight="bold" fill="#fff">v0.1 (synthetic)</text>
+  <text x="215" y="253" font-size="14" font-weight="bold" fill="#dc3545">19.0%</text>
+
+  <!-- v2 bar text -->
+  <rect x="20" y="275" width="460" height="36" rx="4" fill="url(#v2bar)"/>
+  <text x="30" y="298" font-size="14" font-weight="bold" fill="#fff">v0.2 (real data)</text>
+  <text x="490" y="298" font-size="14" font-weight="bold" fill="#28a745">98.3%</text>
+
+  <!-- x5 arrow -->
+  <text x="640" y="293" font-size="13" fill="#333">5.2× improvement</text>
+  <line x1="620" y1="293" x2="600" y2="293" stroke="#28a745" stroke-width="2"/>
+
+  <!-- Horizontal axis -->
+  <line x1="20" y1="330" x2="620" y2="330" stroke="#ccc" stroke-width="1"/>
+  <text x="20" y="348" font-size="11" fill="#888">0%</text>
+  <text x="170" y="348" font-size="11" fill="#888">25%</text>
+  <text x="320" y="348" font-size="11" fill="#888">50%</text>
+  <text x="470" y="348" font-size="11" fill="#888">75%</text>
+  <text x="610" y="348" font-size="11" fill="#888">100%</text>
+
+  <!-- Legend -->
+  <rect x="20" y="360" width="12" height="12" rx="2" fill="#dc3545"/>
+  <text x="36" y="371" font-size="11" fill="#555">Synthetic training</text>
+  <rect x="160" y="360" width="12" height="12" rx="2" fill="#28a745"/>
+  <text x="176" y="371" font-size="11" fill="#555">Real-data training</text>
+</svg>

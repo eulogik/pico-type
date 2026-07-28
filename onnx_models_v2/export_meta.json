@@ -1,0 +1,31 @@
+{
+  "tiers": [
+    "tiny",
+    "small",
+    "base",
+    "pro"
+  ],
+  "tier_dims": {
+    "tiny": 16,
+    "small": 64,
+    "base": 192,
+    "pro": 576
+  },
+  "params": {
+    "tiny": 1434344,
+    "small": 1445480,
+    "base": 1475176,
+    "pro": 1564264
+  },
+  "head_classes": {
+    "coarse": 12,
+    "modality": 8,
+    "subtype": 24,
+    "code_lang": 62,
+    "text_lang": 30,
+    "file_mime": 90,
+    "risk": 6
+  },
+  "max_bytes": 1024,
+  "opset": 18
+}

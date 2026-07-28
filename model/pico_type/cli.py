@@ -9,7 +9,16 @@ import sys
 
 import numpy as np
 
-from .labels import ALL_HEADS, COARSE_LABELS, MODALITY_LABELS, SUBTYPE_LABELS, CODE_LANG_LABELS, TEXT_LANG_LABELS, FILE_MIME_LABELS, RISK_LABELS
+from .labels import (
+    ALL_HEADS,
+    COARSE_LABELS,
+    CODE_LANG_LABELS,
+    FILE_MIME_LABELS,
+    MODALITY_LABELS,
+    RISK_LABELS,
+    SUBTYPE_LABELS,
+    TEXT_LANG_LABELS,
+)
 
 LABEL_TABLES = {
     "coarse": COARSE_LABELS,
@@ -33,6 +42,7 @@ def load_onnx_model(tier: str = "base", model_dir: str = "checkpoints"):
 
 def load_torch_model(tier: str = "base", checkpoint: str = ""):
     import torch
+
     from .arch import PicoType, PicoTypeConfig
     cfg = PicoTypeConfig(max_bytes=1024)
     model = PicoType(cfg)

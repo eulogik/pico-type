@@ -6,7 +6,6 @@ import json
 import os
 import random
 from pathlib import Path
-from typing import Dict, List
 
 CACHE_DIR = Path(__file__).parent / "data" / "real"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -79,7 +78,7 @@ def infer_lang(file_path: str) -> str | None:
 
 def collect_code(
     num_samples: int = 12000, max_length: int = 1024, seed: int = 42
-) -> List[Dict]:
+) -> list[dict]:
     rng = random.Random(seed)
     base = max(1, num_samples // len(SUPPORTED))
     targets = {lang: base for lang in SUPPORTED}

@@ -11,9 +11,8 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from model.pico_type.arch import PicoType
-from model.pico_type.labels import CODE_LANG_LABELS, TEXT_LANG_LABELS, decode_output
 from model.pico_type.data import MAX_BYTES
-
+from model.pico_type.labels import CODE_LANG_LABELS, TEXT_LANG_LABELS, decode_output
 
 DATA_DIR = Path(__file__).parent / "data" / "real"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -22,6 +21,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 def collect_heap_eval(num_per_lang: int = 50, seed: int = 42) -> list[dict]:
     """Collect contamination-free code eval samples from The Heap."""
     import random
+
     from datasets import load_dataset
 
     rng = random.Random(seed)
@@ -44,8 +44,7 @@ def collect_heap_eval(num_per_lang: int = 50, seed: int = 42) -> list[dict]:
     }
     supported = set(CODE_LANG_LABELS)
     samples, counts = [], {}
-    for heap_lang in lang_map:
-        our_lang = lang_map[heap_lang]
+    for heap_lang, our_lang in lang_map.items():
         if our_lang not in supported:
             continue
         try:

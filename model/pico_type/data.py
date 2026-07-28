@@ -10,12 +10,16 @@ import random
 import re
 import string
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from .labels import (
-    COARSE_LABELS, MODALITY_LABELS, SUBTYPE_LABELS,
-    CODE_LANG_LABELS, TEXT_LANG_LABELS, FILE_MIME_LABELS, RISK_LABELS,
+    COARSE_LABELS,
+    CODE_LANG_LABELS,
+    FILE_MIME_LABELS,
     HEAD_NUM_CLASSES,
+    MODALITY_LABELS,
+    RISK_LABELS,
+    SUBTYPE_LABELS,
+    TEXT_LANG_LABELS,
 )
 
 IGNORE_INDEX = -100
@@ -30,7 +34,7 @@ _TEXT = {name: i for i, name in enumerate(TEXT_LANG_LABELS)}
 _MIME = {name: i for i, name in enumerate(FILE_MIME_LABELS)}
 _RISK = {name: i for i, name in enumerate(RISK_LABELS)}
 
-_LANG_GROUPS: Dict[str, str] = {
+_LANG_GROUPS: dict[str, str] = {
     # python-like (indent-based)
     "python": "python", "ruby": "python", "nim": "python", "julia": "python", "crystal": "python",
     "elixir": "python", "cobol": "python",
@@ -86,7 +90,7 @@ _LANG_GROUPS: Dict[str, str] = {
     "fsharp": "c",
 }
 
-_CODE_TEMPLATES: Dict[str, List[str]] = {
+_CODE_TEMPLATES: dict[str, list[str]] = {
     "python": [
         "def ${func}(${args}):\n    \"\"\"docstring\"\"\"\n    ${val}\n    return ${val}\n",
         "for ${loopvar} in ${ident}:\n    ${ident}(${args})\n    break\n",
@@ -173,9 +177,9 @@ class Sample:
     code_lang: int = IGNORE_INDEX
     text_lang: int = IGNORE_INDEX
     file_mime: int = IGNORE_INDEX
-    risk: List[int] = field(default_factory=list)
+    risk: list[int] = field(default_factory=list)
 
-    def label_dict(self) -> Dict[str, int]:
+    def label_dict(self) -> dict[str, int]:
         result = {}
         for head in (
             "coarse", "modality", "subtype",
@@ -468,17 +472,17 @@ class SyntheticGenerator:
             ).encode()
         elif subtype == "makefile":
             data = (
-                ".PHONY: build test\n"
-                "build:\n\tpython -m build\n"
-                "test:\n\tpytest -q\n"
-            ).encode()
+                b".PHONY: build test\n"
+                b"build:\n\tpython -m build\n"
+                b"test:\n\tpytest -q\n"
+            )
         elif subtype == "dockerfile":
             data = (
-                "FROM python:3.11-slim\n"
-                "WORKDIR /app\n"
-                "COPY . .\n"
-                'CMD ["python", "-m", "model.pico_type.arch"]\n'
-            ).encode()
+                b"FROM python:3.11-slim\n"
+                b"WORKDIR /app\n"
+                b"COPY . .\n"
+                b'CMD ["python", "-m", "model.pico_type.arch"]\n'
+            )
         else:  # gitignore
             data = b"__pycache__/\n*.pyc\n.venv/\ndist/\nbuild/\ncheckpoints/*.pt\n"
         if len(data) > MAX_BYTES:
@@ -583,7 +587,7 @@ class SyntheticGenerator:
             "ttf", "deb", "wasm", "bz2",
         ])
         header, mime = _BINARY_HEADERS.get(ftype, (b"\x00\x00\x00\x00", None))
-        mod_map: Dict[str, str] = {
+        mod_map: dict[str, str] = {
             "pdf": "binary_document",
             "elf": "binary_executable",
             "wasm": "binary_executable",
@@ -691,9 +695,9 @@ class SyntheticGenerator:
             modality=_MODALITY["binary_other"],
         )
 
-    def _detect_risk(self, data: bytes) -> List[int]:
+    def _detect_risk(self, data: bytes) -> list[int]:
         text = data.decode("utf-8", errors="replace")
-        indices: List[int] = []
+        indices: list[int] = []
         if "AKIA" in text:
             indices.append(_RISK["api_key"])
         if text.startswith("Bearer ey"):
@@ -705,7 +709,7 @@ class SyntheticGenerator:
         return indices
 
 
-_BINARY_HEADERS: Dict[str, Tuple[bytes, str]] = {
+_BINARY_HEADERS: dict[str, tuple[bytes, str]] = {
     "pdf": (b"%PDF", "application/pdf"),
     "zip": (b"PK\x03\x04", "application/zip"),
     "gzip": (b"\x1f\x8b", "application/gzip"),
@@ -720,7 +724,7 @@ _BINARY_HEADERS: Dict[str, Tuple[bytes, str]] = {
     "bz2": (b"BZh", "application/x-bzip2"),
 }
 
-_TEXT_WORDS: Dict[str, List[str]] = {
+_TEXT_WORDS: dict[str, list[str]] = {
     "en": ["the", "a", "an", "of", "in", "to", "and", "for", "is", "on",
            "that", "with", "this", "from", "at", "by", "be", "as", "it",
            "data", "model", "function", "return", "value", "list", "string",
@@ -850,12 +854,12 @@ class SyntheticDataset:
     def __init__(self, generator: SyntheticGenerator, size: int):
         self.generator = generator
         self.size = size
-        self._samples: Optional[List[Sample]] = None
+        self._samples: list[Sample] | None = None
 
     def __len__(self) -> int:
         return self.size
 
-    def _ensure(self) -> List[Sample]:
+    def _ensure(self) -> list[Sample]:
         if self._samples is not None:
             return self._samples
         self._samples = [self.generator() for _ in range(self.size)]
@@ -864,11 +868,11 @@ class SyntheticDataset:
     def __getitem__(self, idx: int) -> Sample:
         return self._ensure()[idx]
 
-    def label_counts(self) -> Dict[str, Dict[str, int]]:
+    def label_counts(self) -> dict[str, dict[str, int]]:
         """Return class distribution for each head."""
         from collections import Counter
         samples = self._ensure()
-        counts: Dict[str, Counter] = {}
+        counts: dict[str, Counter] = {}
         for head in (
             "coarse", "modality", "subtype",
             "code_lang", "text_lang", "file_mime",
@@ -879,7 +883,7 @@ class SyntheticDataset:
                 if v != IGNORE_INDEX:
                     counter[v] += 1
             counts[head] = dict(counter)
-        risk_counter: Dict[str, int] = {}
+        risk_counter: dict[str, int] = {}
         for s in samples:
             for r in s.risk:
                 risk_counter[RISK_LABELS[r]] = risk_counter.get(RISK_LABELS[r], 0) + 1
@@ -891,7 +895,7 @@ class RealDataset:
     """Wraps collected real samples as Sample objects."""
 
     def __init__(self, code_path: str = "", text_path: str = "", seed: int = 42):
-        self.samples: List[Sample] = []
+        self.samples: list[Sample] = []
         rng = random.Random(seed)
         gen = SyntheticGenerator(seed)
 
@@ -973,7 +977,7 @@ class MixedDataset:
         return self.synthetic.label_counts()
 
 
-def smoke_test() -> Dict[str, int]:
+def smoke_test() -> dict[str, int]:
     gen = SyntheticGenerator(seed=42)
     ds = SyntheticDataset(gen, 500)
     print(f"Generated {len(ds)} samples")

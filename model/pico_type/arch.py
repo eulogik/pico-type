@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
-
-TIERS: Dict[str, int] = {
+TIERS: dict[str, int] = {
     "tiny": 16,
     "small": 64,
     "base": 192,
@@ -26,8 +24,8 @@ class PicoTypeConfig:
     num_heads: int = 4
     num_attn_layers: int = 2
     rope_theta: float = 500_000.0
-    conv_kernels: Tuple[int, ...] = (3, 5, 7)
-    tiers: Dict[str, int] = field(default_factory=lambda: dict(TIERS))
+    conv_kernels: tuple[int, ...] = (3, 5, 7)
+    tiers: dict[str, int] = field(default_factory=lambda: dict(TIERS))
     num_coarse: int = 12
     num_modality: int = 8
     num_subtype: int = 24
@@ -108,7 +106,7 @@ class RotaryPosEmb(nn.Module):
         self._cached_seq = max_seq
         self._cached_dim = dim
 
-    def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, q: torch.Tensor, k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         seq = q.size(-2)
         if seq > self._cached_seq:
             self._build_cache(max(seq, self._cached_seq * 2), self._cached_dim)
@@ -144,7 +142,7 @@ class AttnBlock(nn.Module):
         self.resid_drop = nn.Dropout(dropout)
         self.rope = RotaryPosEmb(self.head_dim, rope_theta)
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         B, L, D = x.shape
         h = self.norm1(x)
         qkv = self.qkv(h).reshape(B, L, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
@@ -170,7 +168,7 @@ class Pool(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if mask is not None:
             m = mask.unsqueeze(-1).to(x.dtype)
@@ -194,7 +192,7 @@ class MatryoshkaHead(nn.Module):
     def __init__(
         self,
         in_dim: int,
-        tier_dims: Dict[str, int],
+        tier_dims: dict[str, int],
         out_dim: int,
     ):
         super().__init__()
@@ -219,7 +217,7 @@ class MatryoshkaHead(nn.Module):
 
 
 class PicoType(nn.Module):
-    def __init__(self, config: Optional[PicoTypeConfig] = None):
+    def __init__(self, config: PicoTypeConfig | None = None):
         super().__init__()
         self.config = config or PicoTypeConfig()
         cfg = self.config
@@ -255,9 +253,9 @@ class PicoType(nn.Module):
     def forward(
         self,
         bytes_input: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
         tier: str = "base",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         if bytes_input.dtype != torch.long:
             bytes_input = bytes_input.long()
         if bytes_input.size(1) > self.config.max_bytes:
@@ -284,7 +282,7 @@ class PicoType(nn.Module):
         pooled = self.pool(x, mask)
         return {name: head(pooled, tier) for name, head in self.heads.items()}
 
-    def parameter_count(self, tier: Optional[str] = None) -> int:
+    def parameter_count(self, tier: str | None = None) -> int:
         if tier is None:
             return sum(p.numel() for p in self.parameters())
         kept = 0
@@ -296,18 +294,18 @@ class PicoType(nn.Module):
                 kept += p.numel()
         return kept
 
-    def tier_sizes(self) -> Dict[str, int]:
+    def tier_sizes(self) -> dict[str, int]:
         return {tier: self.parameter_count(tier) for tier in self.config.tiers}
 
 
-def encode_bytes(data: bytes, max_len: int = 1024, pad: int = 0) -> Tuple[torch.Tensor, torch.Tensor]:
+def encode_bytes(data: bytes, max_len: int = 1024, pad: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
     raw = list(data[:max_len])
     seq = raw + [pad] * (max_len - len(raw))
     mask = [1] * len(raw) + [0] * (max_len - len(raw))
     return torch.tensor([seq], dtype=torch.long), torch.tensor([mask], dtype=torch.long)
 
 
-def smoke_test() -> Dict[str, int]:
+def smoke_test() -> dict[str, int]:
     cfg = PicoTypeConfig(max_bytes=128)
     model = PicoType(cfg).eval()
     sample = (

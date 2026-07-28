@@ -6,7 +6,6 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -15,18 +14,18 @@ from torch.utils.data import DataLoader
 from .arch import PicoType, PicoTypeConfig
 from .data import (
     IGNORE_INDEX,
-    SyntheticGenerator,
     SyntheticDataset,
+    SyntheticGenerator,
 )
 from .labels import (
     COARSE_LABELS,
-    MODALITY_LABELS,
-    SUBTYPE_LABELS,
     CODE_LANG_LABELS,
-    TEXT_LANG_LABELS,
     FILE_MIME_LABELS,
-    RISK_LABELS,
     HEAD_NUM_CLASSES,
+    MODALITY_LABELS,
+    RISK_LABELS,
+    SUBTYPE_LABELS,
+    TEXT_LANG_LABELS,
 )
 from .train import collate_fn
 
@@ -62,36 +61,36 @@ class EvalConfig:
 @dataclass
 class HeadMetrics:
     accuracy: float = 0.0
-    per_class: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    per_class: dict[str, dict[str, float]] = field(default_factory=dict)
     support: int = 0
     n_classes: int = 0
-    confusion: List[List[int]] = field(default_factory=list)
+    confusion: list[list[int]] = field(default_factory=list)
 
 
 @dataclass
 class RiskMetrics:
-    per_class: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    per_class: dict[str, dict[str, float]] = field(default_factory=dict)
     average_precision: float = 0.0
 
 
 @dataclass
 class EvalResults:
-    head_metrics: Dict[str, HeadMetrics] = field(default_factory=dict)
+    head_metrics: dict[str, HeadMetrics] = field(default_factory=dict)
     risk_metrics: RiskMetrics = field(default_factory=RiskMetrics)
     inference_time_ms: float = 0.0
-    config: Dict = field(default_factory=dict)
+    config: dict = field(default_factory=dict)
 
 
 def _per_class_metrics(
-    y_true: List[int],
-    y_pred: List[int],
-    labels: List[str],
+    y_true: list[int],
+    y_pred: list[int],
+    labels: list[str],
     n_classes: int,
-) -> Tuple[Dict[str, Dict[str, float]], List[List[int]]]:
+) -> tuple[dict[str, dict[str, float]], list[list[int]]]:
     conf = [[0] * n_classes for _ in range(n_classes)]
     for t, p in zip(y_true, y_pred):
         conf[t][p] += 1
-    metrics: Dict[str, Dict[str, float]] = {}
+    metrics: dict[str, dict[str, float]] = {}
     for i, name in enumerate(labels):
         tp = conf[i][i]
         fp = sum(conf[j][i] for j in range(n_classes)) - tp
@@ -126,7 +125,7 @@ def evaluate(config: EvalConfig) -> EvalResults:
         raise FileNotFoundError(f"checkpoint not found: {config.checkpoint}")
     model.eval()
 
-    results: Dict[str, List[int]] = {head: [] for head in SINGLE_LABEL_HEADS}
+    results: dict[str, list[int]] = {head: [] for head in SINGLE_LABEL_HEADS}
     results["risk_pred"] = []
     results["risk_true"] = []
 
@@ -153,7 +152,7 @@ def evaluate(config: EvalConfig) -> EvalResults:
     elapsed = time.perf_counter() - t0
 
     time_ms = elapsed / len(ds) * 1000.0
-    head_metrics: Dict[str, HeadMetrics] = {}
+    head_metrics: dict[str, HeadMetrics] = {}
     for head in SINGLE_LABEL_HEADS:
         items = results[head]
         if not items:
@@ -181,8 +180,8 @@ def evaluate(config: EvalConfig) -> EvalResults:
 
     risk_items_true = results["risk_true"]
     risk_items_pred = results["risk_pred"]
-    risk_pclass: Dict[str, Dict[str, float]] = {}
-    ap_values: List[float] = []
+    risk_pclass: dict[str, dict[str, float]] = {}
+    ap_values: list[float] = []
     if risk_items_true:
         risk_arr = torch.from_numpy(np.asarray(risk_items_true))
         pred_arr = torch.from_numpy(np.asarray(risk_items_pred))
@@ -211,7 +210,7 @@ def evaluate(config: EvalConfig) -> EvalResults:
     )
 
 
-def run_eval(args: Optional[List[str]] = None) -> None:
+def run_eval(args: list[str] | None = None) -> None:
     import argparse
     p = argparse.ArgumentParser(description="pico-type eval harness")
     p.add_argument("--checkpoint", "-c", default="", help="model checkpoint path")
@@ -239,7 +238,7 @@ def run_eval(args: Optional[List[str]] = None) -> None:
         print(f"Saved to {parsed.output}")
 
 
-def _serialize(results: EvalResults) -> Dict:
+def _serialize(results: EvalResults) -> dict:
     def _hm(hm: HeadMetrics):
         return {
             "accuracy": hm.accuracy,

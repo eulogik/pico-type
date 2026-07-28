@@ -1,5 +1,6 @@
 """Continue v2 training from latest checkpoint."""
 import sys
+
 sys.path.insert(0, '.')
 from model.pico_type.train import TrainConfig, train
 

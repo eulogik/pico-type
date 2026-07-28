@@ -5,23 +5,23 @@ from __future__ import annotations
 import json
 import math
 import os
+from collections.abc import Iterable
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
 
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
 from .arch import PicoType, PicoTypeConfig
-from .data import IGNORE_INDEX, MAX_BYTES, Sample, SyntheticGenerator, SyntheticDataset, RealDataset, MixedDataset
+from .data import IGNORE_INDEX, MAX_BYTES, MixedDataset, RealDataset, Sample, SyntheticDataset, SyntheticGenerator
 from .labels import HEAD_NUM_CLASSES
 
 ALL_HEADS = ("coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime", "risk")
 SINGLE_LABEL_HEADS = ALL_HEADS[:-1]
 
-DEFAULT_HEAD_WEIGHTS: Dict[str, float] = {
+DEFAULT_HEAD_WEIGHTS: dict[str, float] = {
     "coarse": 3.0,
     "modality": 2.0,
     "subtype": 1.0,
@@ -36,7 +36,7 @@ DEFAULT_HEAD_WEIGHTS: Dict[str, float] = {
 class TrainConfig:
     lr: float = 3e-3
     weight_decay: float = 0.01
-    betas: Tuple[float, float] = (0.9, 0.999)
+    betas: tuple[float, float] = (0.9, 0.999)
     warmup_steps: int = 100
     total_steps: int = 5000
     batch_size: int = 64
@@ -48,24 +48,24 @@ class TrainConfig:
     eval_size: int = 500
     output_dir: str = "checkpoints"
     model_config: PicoTypeConfig = field(default_factory=PicoTypeConfig)
-    head_weights: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_HEAD_WEIGHTS))
+    head_weights: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_HEAD_WEIGHTS))
     seed: int = 42
     device: str = "auto"
     compile: bool = False
     tier: str = "base"
-    train_tiers: Tuple[str, ...] = ("tiny", "small", "base", "pro")
+    train_tiers: tuple[str, ...] = ("tiny", "small", "base", "pro")
     resume_from: str = ""
     real_code_path: str = ""
     real_text_path: str = ""
     real_ratio: float = 0.5
 
 
-def collate_fn(batch: List[Sample]) -> Dict[str, torch.Tensor]:
+def collate_fn(batch: list[Sample]) -> dict[str, torch.Tensor]:
     max_len = max(len(s.data) for s in batch)
     max_len = min(max_len, MAX_BYTES)
     input_ids = torch.zeros(len(batch), max_len, dtype=torch.long)
     attention_mask = torch.zeros(len(batch), max_len, dtype=torch.long)
-    labels: Dict[str, torch.Tensor] = {}
+    labels: dict[str, torch.Tensor] = {}
     for head in SINGLE_LABEL_HEADS:
         labels[head] = torch.full((len(batch),), IGNORE_INDEX, dtype=torch.long)
     risk_labels = torch.zeros(len(batch), HEAD_NUM_CLASSES["risk"], dtype=torch.float)
@@ -89,14 +89,14 @@ def collate_fn(batch: List[Sample]) -> Dict[str, torch.Tensor]:
 
 
 class MultiTaskLoss(nn.Module):
-    def __init__(self, weights: Dict[str, float]):
+    def __init__(self, weights: dict[str, float]):
         super().__init__()
         self.weights = weights
         self.ce = nn.CrossEntropyLoss(reduction="mean", ignore_index=IGNORE_INDEX)
         self.bce = nn.BCEWithLogitsLoss(reduction="mean")
 
-    def forward(self, logits: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, float]]:
-        loss_tensors: Dict[str, torch.Tensor] = {}
+    def forward(self, logits: dict[str, torch.Tensor], labels: dict[str, torch.Tensor]) -> tuple[torch.Tensor, dict[str, float]]:
+        loss_tensors: dict[str, torch.Tensor] = {}
         for head in SINGLE_LABEL_HEADS:
             lbl = labels[head]
             if (lbl != IGNORE_INDEX).sum() > 0:
@@ -106,7 +106,7 @@ class MultiTaskLoss(nn.Module):
         loss_tensors["risk"] = self.bce(logits["risk"], labels["risk"])
 
         total = torch.zeros(1, device=next(iter(logits.values())).device)
-        individual: Dict[str, float] = {}
+        individual: dict[str, float] = {}
         for head, loss in loss_tensors.items():
             w = self.weights.get(head, 1.0)
             total = total + w * loss
@@ -119,12 +119,12 @@ def multi_tier_loss(
     model: PicoType,
     input_ids: torch.Tensor,
     attention_mask: torch.Tensor,
-    labels: Dict[str, torch.Tensor],
+    labels: dict[str, torch.Tensor],
     criterion: MultiTaskLoss,
     tiers: Iterable[str],
-) -> Tuple[torch.Tensor, Dict[str, float]]:
-    tier_losses: List[torch.Tensor] = []
-    summed_components: Dict[str, float] = {}
+) -> tuple[torch.Tensor, dict[str, float]]:
+    tier_losses: list[torch.Tensor] = []
+    summed_components: dict[str, float] = {}
     count = 0
     for tier in tiers:
         logits = model(input_ids, attention_mask, tier=tier)
@@ -153,7 +153,7 @@ def get_lr(it: int, config: TrainConfig) -> float:
     return config.lr * 0.5 * (1.0 + math.cos(math.pi * progress))
 
 
-def train(config: Optional[TrainConfig] = None) -> TrainConfig:
+def train(config: TrainConfig | None = None) -> TrainConfig:
     config = config or TrainConfig()
 
     if config.device == "auto":
@@ -271,7 +271,7 @@ def train(config: Optional[TrainConfig] = None) -> TrainConfig:
 
             if step % config.eval_every == 0:
                 model.eval()
-                eval_losses: Dict[str, float] = {"total": 0.0}
+                eval_losses: dict[str, float] = {"total": 0.0}
                 eval_batches = 0
                 with torch.no_grad():
                     for eval_batch in eval_loader:
@@ -318,7 +318,7 @@ def train(config: Optional[TrainConfig] = None) -> TrainConfig:
     return config
 
 
-def load_checkpoint(path: str, model: PicoType, optimizer: Optional[torch.optim.Optimizer] = None) -> Tuple[PicoType, Optional[torch.optim.Optimizer], Dict]:
+def load_checkpoint(path: str, model: PicoType, optimizer: torch.optim.Optimizer | None = None) -> tuple[PicoType, torch.optim.Optimizer | None, dict]:
     ckpt = torch.load(path, map_location="cpu")
     model.load_state_dict(ckpt["model_state_dict"])
     if optimizer and "optimizer_state_dict" in ckpt:
