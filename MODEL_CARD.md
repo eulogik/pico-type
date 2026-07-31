@@ -25,7 +25,7 @@ ByteEmbed → Conv1D×3 → BiAttention×2 → Pool → Matryoshka Heads
 
 - **Byte-level**: operates directly on UTF-8 bytes, supports any language
 - **Matryoshka heads**: 7 independent classification heads with 4 tiers (tiny/small/base/pro)
-- **1.5M params**: fits in ~200KB ONNX, runs in <12ms on CPU
+- **1.5M params**: fits in ~9MB single-file ONNX (FP32), runs in ~18ms on CPU
 - **No tokenizer**: zero vocabulary dependencies
 
 ## Classification Heads
@@ -54,8 +54,8 @@ Benchmarked on synthetic data (500 samples, 1024 bytes max, base tier, 1700 trai
 | file_mime | 100.0% | 131 |
 | risk (mAP) | 100.0% | — |
 
-- **Inference**: ~13ms per sample on CPU (ONNX Runtime)
-- **Model size**: ~200KB (FP32 ONNX)
+- **Inference**: ~18ms per sample on CPU (ONNX Runtime, M2)
+- **Model size**: ~9.25MB single-file FP32 (base tier; 206 KB graph + 9.05 MB weights)
 - **Loss**: 1.97 eval_loss (best, step 1700)
 
 > **code_lang** accuracy (54.2%) reflects 62-class coverage; improves with longer sequences (>256 bytes). v0.2 will target better code language discrimination.
@@ -92,10 +92,10 @@ PICOTYPE_MODEL_DIR=./checkpoints python -m model.pico_type.mcp_server
 
 | Tier | Head Dim | Params | ONNX Size |
 |------|----------|--------|-----------|
-| tiny | 16 | 1.43M | 203 KB |
-| small | 64 | 1.45M | 203 KB |
-| base | 192 | 1.48M | 206 KB |
-| pro | 576 | 1.56M | 202 KB |
+| tiny | 16 | 1.43M | 9.09 MB |
+| small | 64 | 1.45M | 9.13 MB |
+| base | 192 | 1.48M | 9.25 MB |
+| pro | 576 | 1.56M | 9.61 MB |
 
 All tiers share the same trunk; only the final linear layer differs per tier.
 

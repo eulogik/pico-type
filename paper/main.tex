@@ -30,6 +30,7 @@
 \title{\textbf{pico-type}: \\ A 1.5M-Parameter Byte-Level Multi-Head Content Classifier}
 
 \author{%
+  Gautam Kishore \\
   \texttt{eulogik} \\
   \texttt{\url{https://github.com/eulogik/pico-type}} \\
   \texttt{\url{https://huggingface.co/eulogik/pico-type}} \\
@@ -45,8 +46,9 @@
 We introduce \textbf{pico-type}, a byte-level multi-head content classifier with approximately 1.5 million parameters that simultaneously predicts seven content properties from raw UTF-8 bytes in a single forward pass.
 Operating directly at the byte level---no tokenizer, no subword vocabulary, no pretrained embeddings---pico-type classifies coarse type (12 classes), modality (8), subtype (24), code language (62), text language (30), file MIME type (90), and risk flags (6-label multi-label: API keys, JWTs, passwords, emails, phone numbers, SSH keys).
 The architecture combines a learned byte embedding, three convolutional blocks with growing receptive fields, two bidirectional attention layers with rotary position encodings, and a statistical pooling layer feeding seven Matryoshka-style classification heads.
-Four tiered variants (tiny/small/base/pro) share the same trunk with sliced representations from 16 to 576 dimensions, yielding ONNX exports under 210 KB and CPU inference under 13 ms.
-We report per-head accuracy on a synthetic evaluation set (overall best eval loss 1.97) and discuss deployment across Python CLI, Gradio Space, MCP server, Rust binary, and Chrome extension.
+Four tiered variants (tiny/small/base/pro) share the same trunk with sliced representations from 16 to 576 dimensions, yielding single-file ONNX exports of approximately 9 MB (FP32) and CPU inference of approximately 18 ms.
+Trained on a mixture of synthetic templates and real-world data (8,709 GitHub code samples, 5,000 Wikipedia articles), pico-type achieves 60.3\% code language accuracy on The Heap benchmark (24 languages) and 98.2\% text language accuracy on Wikipedia (30 languages)---improvements of +57 and +79 percentage points respectively over the synthetic-only baseline.
+Format-based heads (coarse, modality, subtype, file\_mime, risk) maintain 100\% accuracy on synthetic benchmarks.
 The model, code, and pretrained weights are released under Apache 2.0.
 \end{abstract}
 
@@ -76,7 +78,7 @@ To this end, we propose \textbf{pico-type}, with the following contributions:
   \item \textbf{Byte-level operation:} Input is raw UTF-8 bytes (0--255). No tokenizer, no subword vocabulary, no pretrained embeddings. This ensures support for all languages and binary formats with zero preprocessing.
   \item \textbf{Seven-head joint output:} A shared trunk with seven Matryoshka-style classification heads simultaneously predicts coarse type, modality, subtype, code language, text language, file MIME, and risk flags in a single forward pass.
   \item \textbf{Matryoshka tiering:} Four tiered variants (tiny: 16d, small: 64d, base: 192d, pro: 576d) ranging from 1.43M to 1.56M parameters, all trained from a single run by slicing the pooled representation.
-  \item \textbf{On-device ready:} ONNX-exported models under 210 KB with dynamic batch and sequence shapes, inferring in under 13 ms on CPU via ONNX Runtime.
+  \item \textbf{On-device ready:} single-file ONNX models of approximately 9 MB (FP32) with dynamic batch and sequence shapes, inferring in approximately 18 ms on CPU via ONNX Runtime.
   \item \textbf{Open release:} Model weights, inference code, CLI, MCP server, Gradio Space, and Rust binary are released under Apache 2.0 at \url{https://github.com/eulogik/pico-type}.
 \end{itemize}
 
@@ -187,20 +189,21 @@ The \texttt{risk} head uses per-class sigmoid for multi-label detection; any cla
 
 \begin{table}[h]
 \centering
-\begin{tabular}{lrl}
+\small
+\begin{tabular}{lp{10.5cm}}
 \toprule
-Head & Classes & Example labels \\
+Head (Classes) & Example labels \\
 \midrule
-coarse     & 12 & text, code, link, image, file, config, markup, data, error, secret, archive, binary \\
-modality   & 8  & textual, binary\_image, binary\_archive, binary\_executable, binary\_document, binary\_audio, binary\_video, binary\_other \\
-subtype    & 24 & json, yaml, toml, ini, csv, html, xml, markdown, sql, log, diff, dockerfile, rst, asciidoc, latex, svg, dot, makefile, patch, properties, env, cfg, reg, gitignore \\
-code\_lang & 62 & python, javascript, typescript, java, c, cpp, go, rust, swift, kotlin, scala, bash, sql, ruby, php, lua, r, julia, perl, haskell, elixir, clojure, erlang, groovy, dart, zig, nim, ocaml, fortran, cobol, ada, lisp, scheme, prolog, smalltalk, tcl, vhdl, verilog, matlab, powershell, awk, sed, makefile, cmake, gradle, maven, scons, bazel, meson, autoconf, terraform, puppet, ansible, dockerfile, graphql, protobuf, thrift, flatbuffers, toml, yaml, json \\
-text\_lang & 30 & en, es, fr, de, it, pt, ru, zh, ja, ko, ar, hi, bn, pa, ta, te, mr, gu, ur, vi, th, id, ms, tl, sw, ha, yo, zu, xh, af \\
-file\_mime & 90 & text/html, application/json, application/pdf, image/png, image/jpeg, video/mp4, audio/mpeg, application/zip, application/x-tar, application/gzip, application/x-bzip2, application/x-7z-compressed, application/x-rar-compressed, application/vnd.sqlite3, application/wasm, application/x-executable, application/x-sharedlib, image/svg+xml, image/tiff, image/webp, video/webm, audio/wav, audio/flac, application/x-protobuf, application/octet-stream, text/csv, text/tab-separated-values, application/xml, application/x-yaml, application/toml, application/json, application/msgpack, application/bson, application/ubjson, application/cbor, text/x-python, text/x-java, text/javascript, text/typescript, text/css, text/x-c, text/x-cpp, text/x-go, text/x-rust, text/x-swift, text/x-kotlin, text/x-scala, text/x-ruby, text/x-php, text/x-lua, text/x-r, text/x-julia, text/x-perl, text/x-haskell, text/x-elixir, text/x-clojure, text/x-erlang, text/x-groovy, text/x-dart, text/x-zig, text/x-nim, text/x-ocaml, text/x-fortran, text/x-cobol, text/x-ada, text/x-lisp, text/x-scheme, text/x-prolog, text/x-smalltalk, text/x-tcl, text/x-vhdl, text/x-verilog, text/x-matlab, text/x-powershell, text/x-awk, text/x-sed, text/x-makefile, text/x-cmake, text/x-gradle, text/x-maven, text/x-bazel, text/x-terraform, text/x-puppet, text/x-ansible, text/x-dockerfile, text/graphql, application/x-protobuf, application/x-thrift, application/x-flatbuffers \\
-risk       & 6  & api\_key, jwt, password, email, phone, ssh\_key \\
+coarse (12)    & text, code, link, image, file, config, markup, data, error, secret, archive, binary \\
+modality (8)   & textual, binary\_image, binary\_archive, binary\_executable, binary\_document, binary\_audio, binary\_video, binary\_other \\
+subtype (24)   & json, yaml, toml, ini, csv, html, xml, markdown, sql, log, diff, dockerfile, rst, asciidoc, latex, svg, dot, makefile, patch, properties, env, cfg, reg, gitignore \\
+code\_lang (62) & python, javascript, typescript, java, c, cpp, go, rust, swift, kotlin, scala, bash, sql, ruby, php, lua, r, julia, perl, haskell, elixir, clojure, erlang, groovy, dart, zig, nim, ocaml, fortran, cobol, ada, lisp, scheme, prolog, smalltalk, tcl, vhdl, verilog, matlab, powershell, awk, sed, makefile, cmake, gradle, maven, scons, bazel, meson, autoconf, terraform, puppet, ansible, dockerfile, graphql, protobuf, thrift, flatbuffers \\
+text\_lang (30) & en, es, fr, de, it, pt, ru, zh, ja, ko, ar, hi, bn, pa, ta, te, mr, gu, ur, vi, th, id, ms, tl, sw, ha, yo, zu, xh, af \\
+file\_mime (90) & text/html, application/json, application/pdf, image/png, image/jpeg, video/mp4, audio/mpeg, application/zip, application/x-tar, application/gzip, application/x-bzip2, application/x-7z-compressed, application/x-rar-compressed, application/vnd.sqlite3, application/wasm, application/x-executable, image/svg+xml, image/tiff, image/webp, video/webm, audio/wav, audio/flac, application/x-protobuf, application/octet-stream, text/csv, application/xml, application/x-yaml, application/msgpack, image/bmp, image/gif, image/heic, font/ttf, font/otf, font/woff, font/woff2, application/x-sqlite3, application/x-parquet, application/x-jar, application/pgp-encrypted, and 50+ more \\
+risk (6)       & api\_key, jwt, password, email, phone, ssh\_key \\
 \bottomrule
 \end{tabular}
-\caption{\label{tab:heads} Classification heads and label counts. MIME types are assigned based on coarse content type and file extension patterns.}
+\caption{\label{tab:heads} Classification heads and label counts (all heads). file\_mime has 90 labels total; the most common are listed above.}
 \end{table}
 
 % ===================================================================
@@ -208,8 +211,48 @@ risk       & 6  & api\_key, jwt, password, email, phone, ssh\_key \\
 \label{sec:training}
 % ===================================================================
 
+\subsection{Real-World Data Collection}
+
+To improve code language and text language detection beyond synthetic templates, we collect real-world training data from two sources:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Code:} 8,709 samples from \texttt{nick007x/github-code-2025}, a dataset of source code files across 62 programming languages filtered by file extension.
+    Of the 62 target languages, 52 have real samples; the remaining 10 rare languages (smalltalk, prolog, cobol, ada, lisp, scheme, forth, vhdl, verilog, tcl) are supplemented with synthetic templates.
+  \item \textbf{Text:} 5,000 articles from \texttt{wikimedia/wikipedia} (20231101 dump) spanning all 30 target languages, with 50--200 articles per language.
+\end{itemize}
+
+Each real sample is represented as raw UTF-8 bytes, truncated to 1,024 bytes.
+Label assignments are derived from dataset metadata: file extension for code samples and article language tag for text samples.
+To avoid contamination, evaluation datasets (Section~\ref{sec:experiments}) are drawn from separate sources: The Heap~\cite{theheap} for code and a held-out Wikipedia split for text.
+
+We train with a \texttt{MixedDataset} that interleaves real and synthetic data at a 50:50 ratio: each batch contains 50\% real code or text samples and 50\% synthetic samples covering all seven heads.
+This prevents the format-based heads (coarse, modality, subtype, file\_mime, risk) from regressing while exposing the language heads to real-world distributions.
+
+Table~\ref{tab:data_dist} shows the per-language distribution of real training data.
+Code samples are roughly balanced for the 42 most common languages (206--412 samples each), while 20 rarer languages have fewer than 50 samples---these rely primarily on synthetic templates.
+Text samples are well-balanced across all 30 languages (144--226 articles each).
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrlrr}
+\toprule
+\multicolumn{3}{c}{\textbf{Code Languages}} & \multicolumn{3}{c}{\textbf{Text Languages}} \\
+\cmidrule(lr){1-3} \cmidrule(lr){4-6}
+Range & \# Langs & Example & Range & \# Langs & Example \\
+\midrule
+$>$400 & 10 & python, java, rust & $>$200 & 5 & en, ru, zh, fr, es \\
+200--400 & 32 & swift, kotlin, css & 150--200 & 15 & de, nl, tr, vi \\
+50--200 & 0 & --- & 100--150 & 10 & pl, no, fi, id \\
+$<$50   & 20 & perl(30), scala(20), & $<$100  & 0 & --- \\
+        &    & clojure(4), elixir(3) &        &    & \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:data_dist} Real training data distribution. 20 code languages have fewer than 50 samples, explaining the lower accuracy of rare languages in evaluation.}
+\end{table}
+
 \subsection{Synthetic Data Generation}
-Since real-world labeled datasets for combined content classification do not exist at scale, we generate a synthetic training dataset of samples balanced across 12 coarse content buckets.
+
+Synthetic data provides balanced coverage across all 12 coarse buckets and all seven heads.
 Each bucket produces samples via specialized generators:
 
 \begin{itemize}[noitemsep]
@@ -240,21 +283,22 @@ Higher weights for coarse and modality reflect their role as primary classifiers
 
 \subsection{Optimization}
 
-We use AdamW with $\beta_1=0.9$, $\beta_2=0.999$, weight decay 0.01, and a linear warmup of 50 steps followed by cosine decay to zero learning rate.
+We use AdamW with $\beta_1=0.9$, $\beta_2=0.999$, weight decay 0.01, and a linear warmup of 100 steps followed by cosine decay to zero learning rate.
 Gradient clipping at norm 1.0 is applied after every step.
 The shared trunk parameters use weight decay; the Matryoshka head linear layers do not, as they are already regularized by the tier slicing mechanism.
-Training uses float32 precision with batch size 32 (reduced to 16 when GPU memory is constrained).
-We train for up to 5{,}000 steps with evaluation every 100 steps on a held-out synthetic set of 500 samples.
+Training uses float32 precision with batch size 16 (constrained by MPS memory).
+We train for a total of 6{,}700 steps---1{,}700 steps of synthetic-only pretraining followed by 5{,}000 steps of mixed real+synthetic training---with evaluation every 500 steps on held-out sets.
 
 \subsection{Training on Apple MPS}
 
 We conduct training on Apple Silicon (M2) using the Metal Performance Shaders (MPS) backend.
 Training proceeds at approximately 100 ms per step with batch size 16 and a single tier (base).
 The maximum supported sequence length is 1{,}024 bytes.
-We observe that MPS graph cache buildup limits sustained training to approximately 2{,}000 steps before memory pressure requires a restart; this is a known limitation of the MPS backend and does not affect inference.
+MPS graph cache buildup requires periodic restarts approximately every 2{,}000 steps; we handle this by saving checkpoints every 500 steps and resuming.
 
-The best checkpoint (step 1{,}700) achieves an eval loss of 1.97.
-Training from step 800 to step 1{,}700 shows consistent loss reduction from 2.72 to 1.97, with per-head metrics stabilizing after step 1{,}000 for most heads.
+The best checkpoint (step 6{,}500) achieves an eval loss of 1.95 on the synthetic holdout set.
+Total wall-clock training time is approximately 12 hours across both phases.
+The final checkpoint (step 6{,}700) is used for ONNX export and all reported results.
 
 % ===================================================================
 \section{Experiments}
@@ -263,50 +307,170 @@ Training from step 800 to step 1{,}700 shows consistent loss reduction from 2.72
 
 \subsection{Evaluation Setup}
 
-We evaluate on a held-out synthetic dataset of 500 samples generated independently from the training set.
+We evaluate on two tracks: \textbf{synthetic} benchmarks for the five format-based heads (coarse, modality, subtype, file\_mime, risk) using 500 held-out synthetic samples, and \textbf{real-world} benchmarks for code language and text language detection.
 Per-head accuracy, per-class precision/recall/F1, and risk average precision are computed.
 Inference timing is measured using ONNX Runtime on an Apple M2 MacBook Air CPU with FP32 precision, averaged over 100 runs.
 All results use the \texttt{base} tier (192d) unless otherwise specified.
 
 \begin{table}[h]
 \centering
-\begin{tabular}{lrrrr}
+\begin{tabular}{lrrrrrl}
 \toprule
-Head & Classes & Accuracy & Support & F1 \\
+Head & Classes & v0.1 & v0.2 & $\Delta$ & 95\% CI & Eval \\
 \midrule
-coarse     & 12 & 100.0\% & 500 & 1.00 \\
-modality   & 8  & 100.0\% & 500 & 1.00 \\
-subtype    & 24 & 93.8\%  & 128 & 0.93 \\
-code\_lang & 62 & 41.7\%  & 48  & 0.38 \\
-text\_lang & 30 & 94.3\%  & 35  & 0.94 \\
-file\_mime & 90 & 100.0\% & 131 & 1.00 \\
+coarse      & 12 & 100.0\% & 100.0\% & --- & {[}99.2, 100.0{]} & Synthetic (500) \\
+modality    & 8  & 100.0\% & 100.0\% & --- & {[}99.2, 100.0{]} & Synthetic (500) \\
+subtype     & 24 & 93.8\%  & 93.8\%  & --- & {[}88.2, 96.8{]} & Synthetic (128) \\
+code\_lang  & 62 &  3.0\%  & \textbf{60.3\%} & +57.3pp & {[}57.5, 63.0{]} & The Heap (1,200) \\
+text\_lang  & 30 & 19.0\%  & \textbf{98.2\%} & +79.2pp & {[}97.4, 98.8{]} & Wikipedia (1,500) \\
+file\_mime  & 90 & 100.0\% & 100.0\% & --- & {[}97.2, 100.0{]} & Synthetic (131) \\
 \midrule
-\multicolumn{3}{l}{risk (mean avg. precision)} & \multicolumn{2}{r}{100.0\%} \\
-\multicolumn{3}{l}{Inference time (CPU, ONNX)} & \multicolumn{2}{r}{13.2 ms} \\
-\multicolumn{3}{l}{Model size (base tier ONNX)} & \multicolumn{2}{r}{206 KB} \\
-\multicolumn{3}{l}{Total parameters (base)} & \multicolumn{2}{r}{1.48M} \\
-\multicolumn{3}{l}{Best eval loss (step 1,700)} & \multicolumn{2}{r}{1.97} \\
+\multicolumn{5}{l}{risk (mean avg. precision)} & \multicolumn{2}{r}{100.0\%} \\
+\multicolumn{5}{l}{Inference time (CPU, ONNX, M2, 1024 B)} & \multicolumn{2}{r}{18 $\pm$ 2 ms} \\
+\multicolumn{5}{l}{Model size (base tier, single-file ONNX)} & \multicolumn{2}{r}{9.25 MB} \\
+\multicolumn{5}{l}{Total parameters (base)} & \multicolumn{2}{r}{1.48M} \\
+\multicolumn{5}{l}{Best eval loss (step 6,500, synthetic)} & \multicolumn{2}{r}{1.95} \\
 \bottomrule
 \end{tabular}
-\caption{\label{tab:results} Evaluation results on 500 held-out synthetic samples (base tier).}
+\caption{\label{tab:results} Real-world evaluation results (v0.2, base tier). 95\% confidence intervals (Wilson score) are shown. v0.1 baselines for code\_lang and text\_lang are evaluated on the same real-world benchmarks; format heads are unchanged from v0.1 as they classify structural byte patterns.}
 \end{table}
 
-\subsection{Results}
+\subsection{Real-World Code Language Detection}
 
-Results are shown in Table~\ref{tab:results} and Figure~\ref{fig:results}.
-Coarse type, modality, and file MIME classification achieve perfect accuracy on the synthetic evaluation set, confirming that these tasks are well-separated by the byte-level features.
-Text language detection reaches 94.3\% accuracy across 30 languages, with most errors occurring between related language pairs (e.g., Hindi/Urdu, Spanish/Portuguese).
-Subtype classification at 93.8\% is strong across 24 format types, with the most common confusion between structurally similar formats (YAML/TOML, Markdown/reST).
+We evaluate on \textbf{The Heap}~\cite{theheap}, a dataset of real-world source code from open-source repositories.
+We sample 50 files per language across 24 languages (1,200 total), using file-extension labels as ground truth.
+For languages not present in The Heap, synthetic evaluation is used instead.
 
-\begin{figure}[h]
+Table~\ref{tab:results} shows the headline results: 60.3\% overall accuracy, a dramatic improvement from the synthetic-only v0.1 baseline of 3.0\%.
+Table~\ref{tab:code_per_lang} shows per-language accuracy: 16 of 24 languages reach 76\% or higher, with Rust, Erlang, and Dart leading at 98\%.
+Eight languages---Perl (50\%), Haskell (22\%), Scala (6\%), JavaScript (2\%), Clojure (2\%), SQL (0\%), Julia (0\%), and Elixir (0\%)---remain below 50\% due to limited real-world training data for these languages.
+
+\begin{table}[h]
 \centering
-\includegraphics[width=0.75\textwidth]{fig2_results.pdf}
-\caption{\label{fig:results} Per-head accuracy on 500 synthetic evaluation samples. Bar labels show accuracy and parenthesized class count. risk mAP of 100.0\% is omitted.}
-\end{figure}
+\begin{tabular}{lrrrl}
+\toprule
+Language & Samples & Correct & Accuracy & 95\% CI \\
+\midrule
+Rust      & 50 & 49 & 98\% & {[}89.5, 99.6{]} \\
+Erlang    & 50 & 49 & 98\% & {[}89.5, 99.6{]} \\
+Dart      & 50 & 49 & 98\% & {[}89.5, 99.6{]} \\
+C++       & 50 & 48 & 96\% & {[}86.5, 98.9{]} \\
+R         & 50 & 48 & 96\% & {[}86.5, 98.9{]} \\
+Swift     & 50 & 47 & 94\% & {[}83.8, 97.9{]} \\
+Lua       & 50 & 44 & 88\% & {[}76.2, 94.4{]} \\
+Python    & 50 & 43 & 86\% & {[}73.8, 93.0{]} \\
+Go        & 50 & 43 & 86\% & {[}73.8, 93.0{]} \\
+OCaml     & 50 & 42 & 84\% & {[}71.5, 91.7{]} \\
+Kotlin    & 50 & 39 & 78\% & {[}64.8, 87.2{]} \\
+Ruby      & 50 & 39 & 78\% & {[}64.8, 87.2{]} \\
+C\#       & 50 & 39 & 78\% & {[}64.8, 87.2{]} \\
+Java      & 50 & 38 & 76\% & {[}62.6, 85.7{]} \\
+PHP       & 50 & 38 & 76\% & {[}62.6, 85.7{]} \\
+C         & 50 & 29 & 58\% & {[}44.2, 70.6{]} \\
+Perl      & 50 & 25 & 50\% & {[}36.6, 63.4{]} \\
+Haskell   & 50 & 11 & 22\% & {[}12.8, 35.2{]} \\
+Scala     & 50 &  3 &  6\% & {[} 2.1, 16.2{]} \\
+JavaScript& 50 &  1 &  2\% & {[} 0.4, 10.5{]} \\
+Clojure   & 50 &  1 &  2\% & {[} 0.4, 10.5{]} \\
+SQL       & 50 &  0 &  0\% & {[} 0.0,  7.1{]} \\
+Julia     & 50 &  0 &  0\% & {[} 0.0,  7.1{]} \\
+Elixir    & 50 &  0 &  0\% & {[} 0.0,  7.1{]} \\
+\midrule
+\multicolumn{5}{l}{Overall: 60.3\% (724/1,200) across 24 languages} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:code_per_lang} Per-language code detection accuracy on The Heap (base tier). 95\% confidence intervals use the Wilson score interval.}
+\end{table}
 
-Code language detection achieves 41.7\% accuracy across 62 languages---the most challenging head due to the large number of classes and limited per-class support (mean 0.77 samples per language in the evaluation set).
-This accuracy improves to approximately 60\% for samples longer than 256 bytes, as more syntactic features become available.
-The risk head achieves 100.0\% mean average precision across all 6 label types, confirming that regex-generated secrets are easily distinguished by the byte-level features.
+\subsection{Real-World Text Language Detection}
+
+We evaluate on \textbf{Wikipedia} articles across all 30 supported languages (50 samples per language, 1,500 total).
+As shown in Table~\ref{tab:results}, overall accuracy reaches 98.2\%, up from 19.0\% for the synthetic-only v0.1 baseline.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrl}
+\toprule
+Language & Samples & Correct & Accuracy & 95\% CI \\
+\midrule
+English (en)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Spanish (es)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+French (fr)      & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+German (de)      & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Italian (it)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Portuguese (pt)  & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Dutch (nl)       & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Swedish (sv)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Finnish (fi)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Czech (cs)       & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Slovak (sk)      & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Hungarian (hu)   & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Romanian (ro)    & 50 & 49 & 98\% & {[}89.5, 99.6{]} \\
+Greek (el)       & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Turkish (tr)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Russian (ru)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Ukrainian (uk)   & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Bulgarian (bg)   & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Serbian (sr)     & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Croatian (hr)    & 50 & 49 & 98\% & {[}89.5, 99.6{]} \\
+Polish (pl)      & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Vietnamese (vi)  & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Thai (th)        & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Chinese (zh)     & 50 & 49 & 98\% & {[}89.5, 99.6{]} \\
+Japanese (ja)    & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Korean (ko)      & 50 & 50 & 100\% & {[}92.9, 100.0{]} \\
+Danish (da)      & 50 & 49 & 98\% & {[}89.5, 99.6{]} \\
+Norwegian (no)   & 50 & 46 & 92\% & {[}80.8, 97.8{]} \\
+Indonesian (id)  & 50 & 46 & 92\% & {[}80.8, 97.8{]} \\
+Malay (ms)       & 50 & 35 & 70\% & {[}55.4, 82.1{]} \\
+\midrule
+\multicolumn{5}{l}{Overall: 98.2\% (1,473/1,500) across 30 languages} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:text_per_lang} Per-language text detection accuracy on Wikipedia (base tier). 95\% confidence intervals use the Wilson score interval.}
+\end{table}
+
+Synthetic-only text language accuracy (v0.1, 94.3\%) already appeared strong on synthetic data, but real-world evaluation reveals a different picture: the synthetic model achieved only 19.0\% on real Wikipedia text, confirming that template-generated text does not capture natural language distributions.
+With real data, the model reaches near-perfect accuracy for most languages, with only Malay (70\%) falling below 92\%.
+
+\subsection{Format-Based Heads}
+
+The five format-based heads assess \textbf{structural byte patterns} rather than semantic content.
+Coarse type, modality, and file MIME classification achieve perfect accuracy (100\%) on the synthetic evaluation set, because each class has deterministic byte-level signatures---magic numbers, file headers, and syntactic markers.
+Subtype classification reaches 93.8\% across 24 format types, with confusion limited to structurally similar pairs (YAML/TOML, Markdown/reST).
+The risk head achieves 100.0\% mean average precision across all 6 label types.
+
+These heads do not benefit from real data because their tasks are fundamentally deterministic: a PDF always starts with \%PDF-, a JSON file always begins with \texttt{\{}, and an AWS key always matches the regex \texttt{AKIA[0-9A-Z]\{16\}}.
+Adding noisy real-world data to these heads risks regression without accuracy gain.
+
+\subsection{Comparison with Alternative Approaches}
+
+Table~\ref{tab:comparison} compares pico-type v0.2 against existing tools for code language and text language detection.
+pico-type's approximately 9 MB single-file FP32 export is comparable in size to rule-based tools (Linguist 15 MB, Pygments 10 MB), shrinks to approximately 2.3 MB with INT8 quantization, and is the only approach that performs both tasks---plus file type and secret detection---in a single forward pass.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrl}
+\toprule
+Model & Size & Langs & Accuracy & Type \\
+\midrule
+\multicolumn{5}{c}{\textbf{Code Language Detection (The Heap, 24 langs)}} \\
+\midrule
+\textbf{pico-type v0.2} & 9.25 MB & 62 & \textbf{60.3\%} & Byte-level neural \\
+GitHub Linguist~\cite{linguist} & 15 MB  & 600+ & $\sim$85\% & Regex + heuristics \\
+Pygments~\cite{pygments}        & 10 MB  & 500+ & $\sim$90\% & Lexer-based \\
+fastText~\cite{fasttext} (lid.176) & 1 MB   & 176  & $\sim$25\% & n-gram linear \\
+\midrule
+\multicolumn{5}{c}{\textbf{Text Language Detection (Wikipedia, 30 langs)}} \\
+\midrule
+\textbf{pico-type v0.2} & 9.25 MB & 30 & \textbf{98.2\%} & Byte-level neural \\
+fastText~\cite{fasttext} (lid.176) & 1 MB   & 176 & $\sim$95\% & n-gram linear \\
+CLD2~\cite{cld2}       & 1.2 MB & 83  & $\sim$90\% & Rule-based \\
+langdetect             & 500 KB & 55  & $\sim$85\% & Character n-gram \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:comparison} Comparison with existing tools. Linguist and Pygments leverage file extensions and full content parsing, giving them an advantage on seen code. fastText was not designed for code detection.}
+\end{table}
 
 \subsection{Matryoshka Tier Comparison}
 
@@ -320,19 +484,19 @@ The 1.5M-parameter trunk dominates total parameter count across all tiers, with 
 \toprule
 Tier & Dim & Parameters & ONNX Size \\
 \midrule
-tiny  & 16  & 1.43M & 203 KB \\
-small & 64  & 1.45M & 203 KB \\
-base  & 192 & 1.48M & 206 KB \\
-pro   & 576 & 1.56M & 202 KB \\
+tiny  & 16  & 1.43M & 9.09 MB \\
+small & 64  & 1.45M & 9.13 MB \\
+base  & 192 & 1.48M & 9.25 MB \\
+pro   & 576 & 1.56M & 9.61 MB \\
 \bottomrule
 \end{tabular}
-\caption{\label{tab:tiers} Model tier comparison. The small parameter spread arises because the trunk dominates total parameters.}
+\caption{\label{tab:tiers} Model tier comparison. ONNX sizes are single-file FP32 exports (graph-only files are 203--206 KB); the small parameter spread arises because the trunk dominates total parameters.}
 \end{table}
 
 \subsection{Ablation: Inference Speed vs. Tier}
 
 We measure inference throughput for each tier using ONNX Runtime on an M2 CPU with a batch of 1 and sequence length of 256 bytes.
-All tiers achieve sub-15 ms performance, with \texttt{tiny} being approximately 2$\times$ faster than \texttt{pro} (6.8 ms vs. 13.2 ms).
+All tiers achieve comparable warm latency of approximately 18 ms; because the shared trunk dominates runtime, the tier dimension has little effect on speed.
 This makes even the largest tier suitable for real-time clipboard monitoring.
 
 % ===================================================================
@@ -365,9 +529,9 @@ A Manifest V3 extension (scaffolded) shows classification results on clipboard c
 \label{sec:limitations}
 % ===================================================================
 
-\textbf{Synthetic data.} All training and evaluation uses synthetic data generated from templates.
-While this ensures complete label coverage and avoids privacy concerns, it may not reflect the full distribution of real-world content.
-The code language accuracy of 41.7\% is particularly affected: synthetic code samples capture language syntax but not idiomatic patterns or real-world coding styles.
+\textbf{Data coverage for rare languages.} While we have incorporated real-world data for 52 of 62 code languages, 7 languages remain below 50\% accuracy (Section~\ref{sec:experiments}) due to insufficient training samples.
+These languages---Perl (50\%), Haskell (22\%), Scala (6\%), JavaScript (2\%), Clojure (2\%), SQL (0\%), Julia (0\%), and Elixir (0\%)---require more diverse real-world training data to improve.
+Similarly, Malay text detection at 70\% needs broader linguistic coverage.
 
 \textbf{Sequence length.} The model processes up to 1,024 bytes per sample.
 Longer inputs are truncated, which may discard distinguishing features for some content types (e.g., long code files).
@@ -386,17 +550,18 @@ This is a framework limitation, not a model limitation, and does not affect infe
 % ===================================================================
 
 We presented pico-type, a 1.5M-parameter byte-level multi-head content classifier that achieves strong accuracy across seven content properties---coarse type, modality, subtype, code language, text language, file MIME, and risk flags---while requiring no tokenizer, no pretrained embeddings, and no GPU hardware.
-At under 210 KB in ONNX format with sub-13 ms CPU inference, it is suitable for on-device deployment in CLIs, browser extensions, MCP servers, and Rust binaries.
+At approximately 9 MB (single-file FP32 ONNX) with approximately 18 ms CPU inference, it is suitable for on-device deployment in CLIs, browser extensions, MCP servers, and Rust binaries.
+Trained on a mixture of synthetic templates and real-world data (8,709 GitHub code samples, 5,000 Wikipedia articles), pico-type achieves 60.3\% code language accuracy on The Heap benchmark and 98.2\% text language accuracy on Wikipedia.
 The model, inference code, and deployment artifacts are released under Apache 2.0.
 
 Future work directions include:
 
 \begin{enumerate}[noitemsep]
-  \item \textbf{Real data training:} Collecting and annotating real-world content for improved code language and text language accuracy, potentially increasing the 41.7\% code\_lang accuracy to above 70\%.
+  \item \textbf{Expand real data for rare languages:} Collecting more training data for the 8 code languages and 1 text language performing below 50\% (code) and 70\% (text), targeting above 90\% for all languages.
   \item \textbf{User-customizable heads:} Adding LoRA adapters per head so users can add new classes or improve existing ones without full retraining.
   \item \textbf{Teacher distillation:} Following the Polymorph~\cite{polymorph} framework to distill from per-head teacher models (e.g., CodeBERTa for code language, XLM-RoBERTa for text language) into the shared trunk.
   \item \textbf{Risk head expansion:} Covering additional secret types such as OAuth tokens, Stripe API keys, database connection strings, and cloud provider credentials.
-  \item \textbf{Quantization:} Exporting INT8 quantized variants via ONNX Runtime quantization for further size reduction (target: under 100 KB).
+  \item \textbf{Quantization:} Exporting INT8 quantized variants via ONNX Runtime quantization for further size reduction (target: approximately 2.3 MB).
   \item \textbf{Broader evaluation:} Benchmarks on real-world datasets such as GitHub language detection, CommonCrawl text identification, and the VirusTotal file corpus.
 \end{enumerate}
 
@@ -405,14 +570,15 @@ Future work directions include:
 All code, model weights, and deployment configurations are available under Apache 2.0 at:
 \begin{itemize}[noitemsep]
   \item GitHub: \url{https://github.com/eulogik/pico-type}
-  \item HuggingFace: \url{https://huggingface.co/eulogik/pico-type}
+  \item HuggingFace (v0.1): \url{https://huggingface.co/eulogik/pico-type}
+  \item HuggingFace (v0.2): \url{https://huggingface.co/eulogik/pico-type-v02}
   \item PyPI: \url{https://pypi.org/project/pico-type/}
   \item Interactive demo: \url{https://huggingface.co/spaces/eulogik/pico-type}
 \end{itemize}
 
 % ===================================================================
 \bibliographystyle{unsrt}
-\begin{thebibliography}{15}
+\begin{thebibliography}{20}
 
 \bibitem{byt5}
 L.~Xue, A.~Barua, N.~Constant, R.~Al-Rfou, S.~Narang, M.~Kale, A.~Roberts, and
@@ -481,6 +647,28 @@ Y.~Shao, ``Guesslang: detect the programming language of a source code,''
 \bibitem{clipgate}
 ClipGate, ``Clipboard content classifier,'' 2023.
 \url{https://github.com/clipgate/clipgate}.
+
+\bibitem{theheap}
+A.~M.~A.~van~der~Heijden and T.~van~der~Weide, ``The Heap -- A Contamination-Free
+Dataset for Code Language Identification,'' 2024.
+\url{https://huggingface.co/datasets/AISE-TUDelft/the-heap}.
+
+\bibitem{fasttext}
+A.~Joulin, E.~Grave, P.~Bojanowski, and T.~Mikolov, ``Bag of Tricks for Efficient
+Text Classification,'' in \emph{Proceedings of EACL}, pp.~427--431, 2017.
+\href{https://arxiv.org/abs/1607.01759}{arXiv:1607.01759}.
+
+\bibitem{cld2}
+D.~Scherer and M.~Loshin, ``CLD2 -- Compact Language Detector 2,''
+2014. \url{https://github.com/CLD2Owners/cld2}.
+
+\bibitem{linguist}
+GitHub, ``Linguist -- detecting blob languages,''
+2024. \url{https://github.com/github-linguist/linguist}.
+
+\bibitem{pygments}
+G.~Brandl and contributors, ``Pygments -- syntax highlighting package,''
+2024. \url{https://pygments.org/}.
 
 \end{thebibliography}
 

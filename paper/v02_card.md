@@ -103,7 +103,7 @@ widget:
 
 # 🚀 pico-type v0.2 <br><sub>The World's Smallest Multi-Head Content Classifier</sub>
 
-**1.43M params · ~200KB ONNX · <12ms CPU inference · 4 tiers · 7 heads · Zero tokenizer**
+**1.43M params · ~9MB single-file ONNX (FP32) · ~18ms CPU inference · 4 tiers · 7 heads · Zero tokenizer**
 
 [![GitHub Stars](https://img.shields.io/github/stars/eulogik/pico-type?style=social)](https://github.com/eulogik/pico-type)
 [![PyPI](https://img.shields.io/pypi/v/picotype?logo=pypi&color=blue)](https://pypi.org/project/picotype/)
@@ -119,7 +119,7 @@ widget:
 
 ---
 
-**Classify ANY content in 7 dimensions from raw bytes — in under 12ms on a CPU.**
+**Classify ANY content in 7 dimensions from raw bytes — in ~18ms on a CPU.**
 <br>
 No tokenizer. No GPU. No internet. Just pure byte-level intelligence.
 
@@ -177,7 +177,7 @@ v0.1 was trained entirely on **synthetic data**. v0.2 is trained on **real-world
 
 | Metric | Value |
 |:-------|:-----:|
-| CPU inference (base tier, 1024 bytes) | **~10ms** |
+| CPU inference (base tier, 1024 bytes) | **~18ms** |
 | CPU inference (tiny tier, 1024 bytes) | **~6ms** |
 | GPU inference | **<1ms** |
 | Model load time (ONNX) | **~20ms** |
@@ -354,10 +354,10 @@ Thanks to the **Matryoshka architecture**, all 4 tiers share the same trunk weig
 
 | Tier | Embedding Dim | Total Params | ONNX Size | Inference (CPU) | Best For |
 |:-----|:------------:|:------------:|:---------:|:---------------:|:---------|
-| **tiny** | 16 | **1.43M** | **203 KB** | ~6ms | Extremely resource-constrained (IoT, browsers) |
-| **small** | 64 | **1.45M** | **203 KB** | ~7ms | Mobile devices, WebAssembly |
-| **base** | 192 | **1.48M** | **206 KB** | ~10ms | General purpose — recommended default |
-| **pro** | 576 | **1.56M** | **202 KB** | ~12ms | Maximum accuracy, server-side |
+| **tiny** | 16 | **1.43M** | **9.09 MB** | ~18ms | Extremely resource-constrained (IoT, browsers) |
+| **small** | 64 | **1.45M** | **9.13 MB** | ~18ms | Mobile devices, WebAssembly |
+| **base** | 192 | **1.48M** | **9.25 MB** | ~18ms | General purpose — recommended default |
+| **pro** | 576 | **1.56M** | **9.61 MB** | ~18ms | Maximum accuracy, server-side |
 
 > All 4 tiers are included in the same ONNX export. Switch between them with `--tier` — no re-download needed.
 
@@ -418,8 +418,8 @@ Adding real data to these heads would risk **noise injection and accuracy regres
 | **Code languages** | 62 | 62 (52 real + 10 synthetic) |
 | **Text languages** | 30 | 30 |
 | **Evaluation** | Synthetic holdout | Real-world (The Heap + Wikipedia) |
-| **ONNX size** | ~200KB | ~200KB (same architecture) |
-| **Inference speed** | <12ms | <12ms |
+| **ONNX size** | ~9 MB (FP32) | ~9 MB (FP32, same architecture) |
+| **Inference speed** | ~18ms | ~18ms |
 
 ---
 
@@ -429,7 +429,7 @@ Adding real data to these heads would risk **noise injection and accuracy regres
 
 | Model | Type | Size | Languages | Accuracy¹ | Inference |
 |:------|:----:|:----:|:---------:|:---------:|:---------:|
-| **pico-type v0.2** 🔥 | Byte-level neural | **~200 KB** | 62 | **60.3%** | **<12ms** |
+| **pico-type v0.2** 🔥 | Byte-level neural | **~9 MB** | 62 | **60.3%** | **~18ms** |
 | GitHub Linguist | Regex + heuristics | ~15 MB | 600+ | ~85%² | ~50ms |
 | Pygments | Lexer-based | ~10 MB | 500+ | ~90%² | ~100ms |
 | fastText (lid.176) | n-gram linear | ~1 MB | 176 | ~25%³ | ~5ms |
@@ -439,13 +439,13 @@ Adding real data to these heads would risk **noise injection and accuracy regres
 > ² Linguist and Pygments use file extensions + full content parsing, giving them an advantage on code they've seen before. They are not directly comparable as they are full parsers, not lightweight classifiers.
 > ³ fastText was not designed for code language detection; included for size reference.
 
-**Key insight**: pico-type is **50× smaller** than Linguist and **70× faster** than Pygments, while being the only model in this comparison that runs in **under 200KB** and requires **no file extensions or grammar files**. It classifies code from raw bytes alone.
+**Key insight**: pico-type's ~9 MB single-file FP32 export is ~1.6× smaller than Linguist (15 MB) and comparable to Pygments (10 MB), while being ~5× faster than Pygments (~18ms vs ~100ms) and the only model in this comparison that classifies code from raw bytes alone — no file extensions or grammar files. It classifies code from raw bytes alone.
 
 ### Text Language Detection
 
 | Model | Type | Size | Languages | Accuracy¹ | Inference |
 |:------|:----:|:----:|:---------:|:---------:|:---------:|
-| **pico-type v0.2** 🌟 | Byte-level neural | **~200 KB** | 30 | **98.3%** | **<12ms** |
+| **pico-type v0.2** 🌟 | Byte-level neural | **~9 MB** | 30 | **98.3%** | **~18ms** |
 | fastText (lid.176) | n-gram linear | ~1 MB | 176 | ~95% | ~5ms |
 | CLD2 | Rule-based | ~1.2 MB | 83 | ~90% | ~3ms |
 | langdetect | Character n-gram | ~500 KB | 55 | ~85% | ~50ms |
@@ -454,7 +454,7 @@ Adding real data to these heads would risk **noise injection and accuracy regres
 
 > ¹ Evaluated on Wikipedia (30 languages, 50 samples each) — real-world text, not synthetic.
 
-**Key insight**: pico-type v0.2 achieves **98.3% accuracy** — comparable to fastText — while being **5× smaller (200KB vs 1MB)**. Unlike CLD2 and langdetect, it requires **no language-specific heuristics or rules**. Everything is learned from data.
+**Key insight**: pico-type v0.2 achieves **98.3% accuracy** — comparable to fastText — with a 1.5M-parameter model that requires **no language-specific heuristics or rules**; everything is learned from data.
 
 ### Why No One Model Does What pico-type Does
 
@@ -467,13 +467,13 @@ Adding real data to these heads would risk **noise injection and accuracy regres
 | Secret / PII detection | ✅ 6 classes | ❌ | ❌ | ❌ |
 | Modality detection | ✅ 8 classes | ❌ | ❌ | ❌ |
 | Subtype detection | ✅ 24 classes | ❌ | ❌ | ❌ |
-| Model size | **~200 KB** | ~1 MB | ~15 MB | ~1.2 MB |
+| Model size | **~9 MB** | ~1 MB | ~15 MB | ~1.2 MB |
 | No tokenizer | ✅ | ✅ | ✅ | ✅ |
 | Single forward pass | ✅ 7 heads | ❌ per task | ❌ per task | ❌ per task |
 | ONNX portable | ✅ | ❌ | ❌ | ❌ |
 | MCP server included | ✅ | ❌ | ❌ | ❌ |
 
-**pico-type is unique**: it's the only model that performs **7 classification tasks in a single forward pass** from raw bytes, in under **200KB** and **12ms** — and the only one that detects both code language AND text language AND file type AND secrets simultaneously.
+**pico-type is unique**: it's the only model that performs **7 classification tasks in a single forward pass** from raw bytes, in **~9 MB** (FP32) and **~18 ms** — and the only one that detects both code language AND text language AND file type AND secrets simultaneously.
 
 ---
 

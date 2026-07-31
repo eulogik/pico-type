@@ -2,7 +2,7 @@
 
 # pico-type 🔍
 
-**A tiny byte-level multi-head content classifier** — ~1.5M params, ~200KB ONNX, <12ms inference.
+**A tiny byte-level multi-head content classifier** — ~1.5M params, ~9MB single-file ONNX (FP32), ~18ms CPU inference.
 
 Classifies any content from raw bytes: **coarse type · modality · subtype · code language · text language · file MIME · risk flags**
 
@@ -23,8 +23,8 @@ Classifies any content from raw bytes: **coarse type · modality · subtype · c
 - **No tokenizer** — operates directly on raw UTF-8 bytes (supports all languages, no preprocessing)
 - **7 heads, one forward pass** — coarse type, modality, subtype, code language, text language, file MIME, risk flags
 - **4 Matryoshka tiers** — tiny (16d) → small (64d) → base (192d) → pro (576d) — same trunk, accuracy scales with dim
-- **~200KB ONNX** — deploy on edge devices, serverless, browser (WebAssembly/ONNX Runtime Web)
-- **<12ms inference** on CPU via ONNX Runtime
+- **~9MB single-file ONNX (FP32)** — deploy on edge devices, serverless, browser (WebAssembly/ONNX Runtime Web)
+- **~18ms inference** on CPU via ONNX Runtime
 - **CLI, Python API, Gradio Space, MCP server** — ready to use
 
 ## 📊 Evaluation
@@ -136,10 +136,12 @@ Total parameters: **1.43M** (tiny) / **1.45M** (small) / **1.48M** (base) / **1.
 
 | Tier | Dim | Params | ONNX Size | Accuracy Multiplier |
 |------|-----|--------|-----------|-------------------|
-| tiny | 16 | 1.43M | 203 KB | 0.65× |
-| small | 64 | 1.45M | 203 KB | 0.82× |
-| base | 192 | 1.48M | 206 KB | 1.0× (reference) |
-| pro | 576 | 1.56M | 202 KB | 1.05× |
+| tiny | 16 | 1.43M | 9.09 MB | 0.65× |
+| small | 64 | 1.45M | 9.13 MB | 0.82× |
+| base | 192 | 1.48M | 9.25 MB | 1.0× (reference) |
+| pro | 576 | 1.56M | 9.61 MB | 1.05× |
+
+ONNX sizes are single-file FP32 exports (graph-only files are 203–206 KB).
 
 All tiers share the same backbone; only the final linear projection layers differ. Higher-tier models use more dimensions for finer-grained classification.
 

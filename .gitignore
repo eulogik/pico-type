@@ -55,3 +55,6 @@ desktop.ini
 
 # --- HF repo clones (accidental) ---
 pico-type/
+
+# Wrangler dev state
+.wrangler/

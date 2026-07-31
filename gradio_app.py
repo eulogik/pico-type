@@ -7,86 +7,7 @@ import os
 import gradio as gr
 import numpy as np
 
-ALL_HEADS = ("coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime", "risk")
-
-COARSE_LABELS = [
-    "text", "code", "link", "image", "file", "config",
-    "markup", "data", "error", "secret", "archive", "binary",
-]
-MODALITY_LABELS = [
-    "textual", "binary_image", "binary_archive", "binary_executable",
-    "binary_document", "binary_audio", "binary_video", "binary_other",
-]
-SUBTYPE_LABELS = [
-    "json", "yaml", "toml", "ini", "csv", "tsv", "xml",
-    "html", "markdown", "rst", "asciidoc", "tex",
-    "sql", "graphql", "protobuf", "msgpack",
-    "log", "diff", "patch", "env",
-    "shell", "makefile", "dockerfile", "gitignore",
-]
-CODE_LANG_LABELS = [
-    "python", "javascript", "typescript", "jsx", "tsx",
-    "java", "kotlin", "scala", "groovy", "clojure",
-    "c", "cpp", "csharp", "fsharp", "objectivec",
-    "go", "rust", "zig",
-    "ruby", "php", "perl", "lua", "tcl",
-    "swift", "dart", "julia", "nim", "crystal",
-    "haskell", "ocaml", "elm", "erlang", "elixir",
-    "lisp", "scheme", "racket",
-    "r", "matlab", "octave", "sas", "stata",
-    "sql", "plsql", "tsql",
-    "html", "css", "scss", "sass", "less",
-    "bash", "zsh", "fish", "powershell",
-    "vim", "fortran", "cobol", "ada", "pascal",
-    "delphi", "vb", "prolog", "vhdl",
-]
-TEXT_LANG_LABELS = [
-    "en", "es", "fr", "de", "it", "pt", "nl", "sv", "no", "da",
-    "fi", "pl", "cs", "sk", "hu", "ro", "el", "tr",
-    "ru", "uk", "bg", "sr", "hr",
-    "zh", "ja", "ko", "ar", "hi", "th", "vi",
-]
-FILE_MIME_LABELS = [
-    "text/html", "application/json", "application/xml", "text/yaml",
-    "text/toml", "text/ini", "text/csv", "text/tsv", "text/markdown",
-    "text/plain", "text/x-python", "text/x-java", "text/x-c",
-    "text/x-cpp", "text/x-rust", "text/x-go", "text/x-ruby",
-    "text/x-php", "text/x-javascript", "text/x-typescript",
-    "text/x-shellscript", "text/x-sql", "text/x-dockerfile",
-    "text/x-makefile", "text/x-yaml", "text/x-diff", "text/x-log",
-    "text/x-env", "text/x-tex", "text/x-asciidoc", "text/x-rst",
-    "application/pdf", "application/zip", "application/gzip",
-    "application/x-tar", "application/x-7z-compressed", "application/x-rar-compressed",
-    "application/x-bzip2", "application/x-xz", "application/x-iso9660-image",
-    "application/vnd.sqlite3", "application/x-parquet",
-    "application/x-elf", "application/x-mach-binary",
-    "application/x-pe-executable", "application/java-archive",
-    "application/wasm", "application/vnd.debian.binary-package",
-    "application/x-apple-diskimage", "application/x-msdownload",
-    "application/x-sharedlib", "application/x-object",
-    "application/x-pcap", "application/x-hdf5", "application/x-netcdf",
-    "application/xml", "application/atom+xml", "application/rss+xml",
-    "application/rdf+xml", "application/xhtml+xml",
-    "image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp",
-    "image/tiff", "image/svg+xml", "image/x-icon", "image/avif",
-    "audio/mpeg", "audio/wav", "audio/ogg", "audio/flac",
-    "audio/aac", "audio/mp4", "audio/webm",
-    "video/mp4", "video/webm", "video/ogg", "video/x-msvideo",
-    "video/quicktime", "video/x-matroska",
-    "font/ttf", "font/otf", "font/woff", "font/woff2",
-    "application/octet-stream", "application/unknown",
-]
-RISK_LABELS = ["api_key", "jwt", "ssh_key", "password", "email", "phone"]
-
-LABEL_TABLES = {
-    "coarse": COARSE_LABELS,
-    "modality": MODALITY_LABELS,
-    "subtype": SUBTYPE_LABELS,
-    "code_lang": CODE_LANG_LABELS,
-    "text_lang": TEXT_LANG_LABELS,
-    "file_mime": FILE_MIME_LABELS,
-    "risk": RISK_LABELS,
-}
+from LABELS import ALL_HEADS, LABEL_TABLES
 
 MODEL_DIR = "."
 
@@ -96,9 +17,7 @@ def _ensure_onnx(tier: str):
     if not os.path.exists(path):
         from huggingface_hub import hf_hub_download
         for t in ["tiny", "small", "base", "pro"]:
-            fname = f"picotype_{t}.onnx"
-            hf_hub_download("eulogik/pico-type", filename=fname, local_dir=MODEL_DIR)
-            hf_hub_download("eulogik/pico-type", filename=f"{fname}.data", local_dir=MODEL_DIR)
+            hf_hub_download("eulogik/pico-type-v02", filename=f"picotype_{t}.onnx", local_dir=MODEL_DIR)
     return path
 
 

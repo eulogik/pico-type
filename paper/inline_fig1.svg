@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 960" font-family="Helvetica,Arial,sans-serif" style="max-width:100%;height:auto">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#333"/></marker>
+    <linearGradient id="g_input" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#667eea"/><stop offset="100%" style="stop-color:#764ba2"/></linearGradient>
+    <linearGradient id="g_embed" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#f093fb"/><stop offset="100%" style="stop-color:#f5576c"/></linearGradient>
+    <linearGradient id="g_conv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#4facfe"/><stop offset="100%" style="stop-color:#00f2fe"/></linearGradient>
+    <linearGradient id="g_attn" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#43e97b"/><stop offset="100%" style="stop-color:#38f9d7"/></linearGradient>
+    <linearGradient id="g_pool" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fa709a"/><stop offset="100%" style="stop-color:#fee140"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/></filter>
+  </defs>
+
+  <rect x="0" y="0" width="760" height="960" rx="12" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>
+
+  <rect x="230" y="15" width="300" height="50" rx="10" fill="url(#g_input)" stroke="#5a67d8" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="45" text-anchor="middle" font-size="15" font-weight="bold" fill="#fff">📄 Raw UTF-8 Bytes (1–1024)</text>
+  <line x1="380" y1="65" x2="380" y2="90" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="230" y="90" width="300" height="55" rx="10" fill="url(#g_embed)" stroke="#d53f8c" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="118" text-anchor="middle" font-size="15" font-weight="bold" fill="#fff">🔤 Byte Embedding</text>
+  <text x="380" y="136" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">lookup-free · 256 vocab × 96d</text>
+  <line x1="380" y1="145" x2="380" y2="170" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="600" y="110" font-size="11" fill="#888">Each byte → learned 96-dim vector</text>
+  <text x="600" y="124" font-size="11" fill="#888">No tokenizer needed!</text>
+
+  <rect x="200" y="170" width="360" height="50" rx="10" fill="url(#g_conv)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="195" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff">🧱 Conv1D Block · kernel=3</text>
+  <text x="380" y="212" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">Conv → LayerNorm → GELU → Residual (96→96d)</text>
+  <line x1="380" y1="220" x2="380" y2="245" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="200" y="245" width="360" height="50" rx="10" fill="url(#g_conv)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="270" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff">🧱 Conv1D Block · kernel=5</text>
+  <text x="380" y="287" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">Conv → LayerNorm → GELU → Residual (96→192d)</text>
+  <line x1="380" y1="295" x2="380" y2="320" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="200" y="320" width="360" height="50" rx="10" fill="url(#g_conv)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="345" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff">🧱 Conv1D Block · kernel=7</text>
+  <text x="380" y="362" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">Conv → LayerNorm → GELU → Residual (192→192d)</text>
+  <line x1="380" y1="370" x2="380" y2="395" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="600" y="200" font-size="11" fill="#888">3 parallel kernel widths</text>
+  <text x="600" y="214" font-size="11" fill="#888">capture n-gram patterns</text>
+  <text x="600" y="228" font-size="11" fill="#888">at 3 different scales</text>
+
+  <rect x="200" y="395" width="360" height="55" rx="10" fill="url(#g_attn)" stroke="#38a169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="420" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff">🧠 BiAttention Block 1 · RoPE</text>
+  <text x="380" y="438" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">Pre-norm → QKV → RoPE → SDPA → MLP (192d)</text>
+  <line x1="380" y1="450" x2="380" y2="475" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="200" y="475" width="360" height="55" rx="10" fill="url(#g_attn)" stroke="#38a169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="500" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff">🧠 BiAttention Block 2 · RoPE</text>
+  <text x="380" y="518" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">Pre-norm → QKV → RoPE → SDPA → MLP (192d)</text>
+  <line x1="380" y1="530" x2="380" y2="555" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="600" y="410" font-size="11" fill="#888">Rotary Position Embedding</text>
+  <text x="600" y="424" font-size="11" fill="#888">4 attention heads</text>
+  <text x="600" y="438" font-size="11" fill="#888">Bidirectional (encoder)</text>
+
+  <rect x="230" y="555" width="300" height="55" rx="10" fill="url(#g_pool)" stroke="#e53e3e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="583" text-anchor="middle" font-size="15" font-weight="bold" fill="#fff">📊 Statistical Pooling</text>
+  <text x="380" y="601" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">[Mean ∥ Max ∥ Std] → 576-dimensional vector</text>
+  <line x1="380" y1="610" x2="380" y2="635" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="600" y="575" font-size="11" fill="#888">Captures distribution</text>
+  <text x="600" y="589" font-size="11" fill="#888">statistics of the</text>
+  <text x="600" y="603" font-size="11" fill="#888">entire byte sequence</text>
+
+  <rect x="230" y="635" width="300" height="35" rx="8" fill="#2d3748" stroke="#1a202c" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="658" text-anchor="middle" font-size="14" font-weight="bold" fill="#e2e8f0">🎯 Matryoshka Slice: 16 / 64 / 192 / 576d</text>
+  <line x1="380" y1="670" x2="380" y2="695" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="600" y="650" font-size="11" fill="#888">4 tiers from ONE model</text>
+  <text x="600" y="664" font-size="11" fill="#888">tiny/small/base/pro</text>
+
+  <rect x="40" y="700" width="155" height="55" rx="8" fill="#d4edda" stroke="#28a745" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="117" y="727" text-anchor="middle" font-size="14" font-weight="bold" fill="#155724">📂 coarse</text>
+  <text x="117" y="745" text-anchor="middle" font-size="11" fill="#155724">12 categories</text>
+
+  <rect x="205" y="700" width="155" height="55" rx="8" fill="#d4edda" stroke="#28a745" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="282" y="727" text-anchor="middle" font-size="14" font-weight="bold" fill="#155724">📦 modality</text>
+  <text x="282" y="745" text-anchor="middle" font-size="11" fill="#155724">8 categories</text>
+
+  <rect x="370" y="700" width="155" height="55" rx="8" fill="#d4edda" stroke="#28a745" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="447" y="727" text-anchor="middle" font-size="14" font-weight="bold" fill="#155724">🏷️ subtype</text>
+  <text x="447" y="745" text-anchor="middle" font-size="11" fill="#155724">24 categories</text>
+
+  <rect x="535" y="700" width="155" height="55" rx="8" fill="#fff3cd" stroke="#ffc107" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="612" y="727" text-anchor="middle" font-size="14" font-weight="bold" fill="#856404">💻 code_lang</text>
+  <text x="612" y="745" text-anchor="middle" font-size="11" fill="#856404">62 languages</text>
+
+  <rect x="40" y="765" width="155" height="55" rx="8" fill="#cce5ff" stroke="#007bff" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="117" y="792" text-anchor="middle" font-size="14" font-weight="bold" fill="#004085">🌐 text_lang</text>
+  <text x="117" y="810" text-anchor="middle" font-size="11" fill="#004085">30 languages</text>
+
+  <rect x="205" y="765" width="155" height="55" rx="8" fill="#cce5ff" stroke="#007bff" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="282" y="792" text-anchor="middle" font-size="14" font-weight="bold" fill="#004085">📎 file_mime</text>
+  <text x="282" y="810" text-anchor="middle" font-size="11" fill="#004085">90 MIME types</text>
+
+  <rect x="370" y="765" width="155" height="55" rx="8" fill="#f8d7da" stroke="#dc3545" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="447" y="792" text-anchor="middle" font-size="14" font-weight="bold" fill="#721c24">🔐 risk</text>
+  <text x="447" y="810" text-anchor="middle" font-size="11" fill="#721c24">6 classes (sigmoid)</text>
+
+  <text x="380" y="860" text-anchor="middle" font-size="13" fill="#888">All 7 heads computed in a single forward pass · ~200KB ONNX · &lt;12ms inference</text>
+
+  <text x="380" y="890" text-anchor="middle" font-size="12" fill="#aaa">Conv1D captures local byte patterns (syntax, keywords, magic numbers)</text>
+  <text x="380" y="908" text-anchor="middle" font-size="12" fill="#aaa">BiAttention with RoPE models long-range dependencies across the byte sequence</text>
+  <text x="380" y="926" text-anchor="middle" font-size="12" fill="#aaa">Matryoshka heads enable 4 compute tiers from a single model trunk</text>
+</svg>

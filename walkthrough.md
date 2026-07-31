@@ -24,7 +24,7 @@ Existing clipboard tools are regex-only (ClipGate, 13 types) or LLM-powered (nee
 - Rust CLI (`crates/picotype/`) — pending
 - Rust MCP server (`crates/picotype-mcp/`) — pending
 - Browser extension, Raycast/Alfred/VSCode extensions — pending
-- arXiv paper — pending
+- arXiv paper ✅ (`paper/main.tex` — updated with v0.2 real-data results, PDF compiles)
 
 ---
 
@@ -189,9 +189,12 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 
 ### Training, Deployment & Publishing
 - **Training**: 1700 steps completed. eval_loss improved 6.33 (step 0) → 2.72 (step 800) → **1.97 (step 1700, best.pt)**. Subtype/code_lang accuracy dipped (overfitting), text_lang/risk improved.
+- **v0.2 training** (real data): 6700 steps (1700 synthetic + 5000 mixed), best eval_loss **1.95** at step 6500. code_lang **60.3%** (The Heap), text_lang **98.2%** (Wikipedia).
 - **ONNX export**: All 4 tiers re-exported from step 1700 best.pt (~200KB each, FP32, opset 18).
+- **ONNX single-file + IR 8**: `scripts/make_single_onnx.py` merges external weights and lowers IR to 8 (onnxruntime-web WASM rejects IR ≥ 9). Identical outputs vs original (verified). Uploaded to `eulogik/pico-type-v02` (old `.onnx.data` files deleted; gradio app no longer downloads them).
 - **HF Model**: `huggingface.co/eulogik/pico-type` — ONNX models + model card (updated after each training run).
-- **HF Space**: `huggingface.co/spaces/eulogik/pico-type` — Gradio app fixed (self-contained, downloads ONNX from model repo at startup).
+- **HF Space**: `huggingface.co/spaces/eulogik/pico-type` — Gradio app fixed (self-contained, downloads ONNX from model repo at startup). **Label drift fixed**: gradio's label tables had drifted from the trained model (`file_mime` 88 vs 90, wrong order; `text_lang` tail wrong) — `scripts/gen_labels_artifacts.py` now generates `LABELS.py` + `workers/src/labels.js` from `model/pico_type/labels.py` (single source of truth). Space RUNNING, verified via gradio API.
+- **Cloudflare Worker** (`workers/`): free HTTP API for all 4 tiers — onnxruntime-web 1.16.3 (WASM), single-file models fetched from HF with Cache API edge caching, CORS open. **Verified byte-identical to Python** (Node harness + parity check: all labels match, confidences within 0.002). Deploy: `npx wrangler login && npx wrangler deploy` (needs user's CF account). Caveats: local `wrangler dev` has no wasm on this Mac (workerd), and free CF plan ~10ms CPU quota is likely too small for ~100ms inference → paid $5/mo for reliable serving.
 - **PyPI**: `pico-type` v0.1.0 published. v0.1.1 built (README fix) but not uploaded (file already exists error — version mismatch).
 - **GitHub**: `github.com/eulogik/pico-type` — `main` branch + `v0.1` tag. CI passes (pytest + ruff).
 
@@ -282,8 +285,11 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 | 15 | `crates/picotype/` | Rust CLI w/ ONNX runtime. | ✅ **done** |
 | 16 | `crates/picotype-mcp/` | Rust MCP server (stdio + Streamable HTTP). | pending |
 | 17 | `extensions/*` | Chrome MV3 scaffolded, Raycast, Alfred, VSCode. | pending |
-| 18 | `paper/` | arXiv LaTeX scaffolded (`paper/main.tex`). | pending |
-| 19 | Training | 1700 steps, best eval_loss 1.97, MPS (batch=16, base tier). Continue with `resume_from=checkpoints/best.pt` | in progress |
+| 18 | `workers/` | Cloudflare Worker HTTP API (free tier) — all 4 tiers, parity-verified vs Python. Deploy: `npx wrangler login && npx wrangler deploy`. | ✅ **done** (not yet deployed) |
+| 18 | `paper/` | arXiv LaTeX (`paper/main.tex`) — updated to v0.2 with real-data results (code_lang 60.3%, text_lang 98.2%), 95% CIs, per-language tables, comparisons vs fastText/CLD2/Linguist/Pygments, data distribution, 20 references. PDF compiles clean. | ✅ **done** |
+| 19 | Training | 6700 steps completed (1700 synthetic + 5000 mixed), best eval_loss 1.95 (step 6500), MPS (batch=16, base tier). Real data: 8709 code + 5000 text samples. ONNX exported to `eulogik/pico-type-v02`. | ✅ **done** |
+| 20 | arXiv | Submitted Thu 30 Jul 2026 (cs.AI primary, cross-listed cs.CL/cs.CR/cs.IR/cs.LG, CC BY 4.0). | ✅ **done** |
+| 21 | Docs correction | Size/latency claims fixed across paper (`main.tex` v2 draft), `README.md`, `MODEL_CARD.md`, `paper/v02_card.md`, HF org card, docs page: single-file FP32 sizes 9.09–9.61 MB (was "203–206 KB" graph-only); latency ~18 ms on M2 CPU (was "5.5–9.8 ms / <12 ms"); comparisons corrected (vs Linguist 1.6×, vs Pygments ~5×). HF main repo artifacts swapped to single-file IR-8, `.onnx.data` deleted; docs page 95.2% → 98.3%. | ✅ **done** |
 
 ---
 

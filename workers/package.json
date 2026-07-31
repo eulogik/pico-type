@@ -1,0 +1,17 @@
+{
+  "name": "pico-type-worker",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "gen-labels": "python3 ../scripts/gen_labels_artifacts.py"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.16.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
