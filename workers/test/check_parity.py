@@ -36,7 +36,8 @@ def classify(text, tier):
     return result
 
 
-worker_results = json.load(open("/tmp/worker_results.json"))
+with open("/tmp/worker_results.json") as f:
+    worker_results = json.load(f)
 samples = [
     "def hello():\n    print('Hello, world!')",
     "The quick brown fox jumps over the lazy dog.",
