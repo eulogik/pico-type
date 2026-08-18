@@ -8,7 +8,7 @@
 
 **Body:**
 
-I've been working on pico-type, a lightweight content classifier that operates directly on raw UTF-8 bytes with no tokenizer. The model has ~1.5M parameters, runs inference in <6ms on CPU, and exports to a ~9MB ONNX file.
+I've been working on pico-type, a lightweight content classifier that operates directly on raw UTF-8 bytes with no tokenizer. The model has ~1.5M parameters, runs inference in ~18ms on CPU, and exports to a ~9MB single-file ONNX. We just published the paper: https://arxiv.org/abs/2608.14658
 
 **Key design choices I'd love feedback on:**
 
@@ -18,9 +18,10 @@ I've been working on pico-type, a lightweight content classifier that operates d
 
 **Matryoshka quantization:** 4 tier slices (16d/64d/192d/576d) share the same trunk, with separate linear heads per tier. This gives a 4x speed-accuracy tradeoff at inference with zero overhead to switch. Curious if others have explored this for multi-head architectures specifically.
 
-**Results:** 95.2% accuracy on 21 hand-curated real-world inputs. 100% on modality, text language, code language. The one failure case is YAML configs being misclassified as errors at short input lengths – a byte-level ambiguity I haven't solved.
+**Results:** Trained on 8,709 GitHub code samples + 5,000 Wikipedia articles: 60.3% code language accuracy on The Heap (24 langs), 98.3% text language accuracy on Wikipedia (30 langs), 100% on format-based heads. Full details in the paper: https://arxiv.org/abs/2608.14658
 
 **Links:**
+- Paper: https://arxiv.org/abs/2608.14658
 - GitHub: https://github.com/eulogik/pico-type
 - PyPI: `pip install pico-type`
 - Browser demo (runs entirely client-side): https://eulogik.github.io/pico-type/demo.html
@@ -36,11 +37,11 @@ Would appreciate thoughts on the architecture, especially the byte-level vs. tok
 
 **Body:**
 
-Hey everyone, wanted to share something I've been building. It's called pico-type – a tiny content classifier that works directly on raw UTF-8 bytes.
+Hey everyone, wanted to share something I've been building. It's called pico-type – a tiny content classifier that works directly on raw UTF-8 bytes. Paper: https://arxiv.org/abs/2608.14658
 
 **Why it's interesting for local inference:**
-- **1.5M parameters**, ~9MB ONNX file
-- **<6ms inference** on CPU (no GPU required)
+- **1.5M parameters**, ~9MB single-file ONNX
+- **~18ms inference** on CPU (no GPU required)
 - **No tokenizer** – feeds raw bytes directly into the model
 - **7 classification heads** in a single forward pass: content type, modality, 62 code languages, 30 text languages, 24 subtypes, 90 MIME types, risk flags (API keys, JWTs, passwords)
 - **Runs in browser** via ONNX Runtime Web – try the demo, zero server needed
@@ -51,11 +52,16 @@ Bytes → Embedding(256→96d) → 3×Conv1D(k=3,5,7) → 2×BiAttention(RoPE) �
 ```
 
 **Matryoshka tiers** let you trade accuracy for speed:
-- tiny (16d): ~3ms, 8.7MB
-- base (192d): ~5ms, 8.8MB  
-- pro (576d): ~12ms, 9.1MB
+- tiny (16d): ~9.1MB
+- base (192d): ~9.3MB
+- pro (576d): ~9.6MB
 
 All tiers share the same weights – switch at inference with zero overhead.
+
+**Results (v2, real-data training):**
+- 60.3% code language accuracy on The Heap (24 langs) — +57pp over synthetic-only
+- 98.3% text language accuracy on Wikipedia (30 langs) — +79pp over synthetic-only
+- 100% on format-based heads (coarse, modality, subtype, file_mime, risk)
 
 **Quick start:**
 ```bash
@@ -63,9 +69,10 @@ pip install pico-type
 echo "def hello(): pass" | picotype --pretty
 ```
 
-Trained on a mix of synthetic data + ~650 real GitHub files across 62 languages. Apache 2.0, fully open.
+Trained on 8,709 real GitHub files + 5,000 Wikipedia articles across 62 languages. Apache 2.0, fully open.
 
 **Links:**
+- Paper: https://arxiv.org/abs/2608.14658
 - GitHub: https://github.com/eulogik/pico-type
 - PyPI: https://pypi.org/project/pico-type/
 - HuggingFace: https://huggingface.co/eulogik/pico-type
@@ -79,7 +86,7 @@ Trained on a mix of synthetic data + ~650 real GitHub files across 62 languages.
 
 **Body:**
 
-I built pico-type, a lightweight content classifier for Python. It identifies what type of content you're dealing with – code, text, images, config files, secrets – directly from raw bytes.
+I built pico-type, a lightweight content classifier for Python. It identifies what type of content you're dealing with – code, text, images, config files, secrets – directly from raw bytes. Paper: https://arxiv.org/abs/2608.14658
 
 **Install and use in 30 seconds:**
 
@@ -90,8 +97,8 @@ echo '{"name": "test"}' | picotype --pretty
 
 **What it classifies (7 heads, one pass):**
 - Content type: code, text, image, config, markup, data, error, secret, archive, binary
-- Code language: 62 languages (Python, JS, TypeScript, Java, C, Go, Rust, SQL, etc.)
-- Text language: 30 languages
+- Code language: 62 languages (Python, JS, TypeScript, Java, C, Go, Rust, SQL, etc.) — 60.3% on The Heap
+- Text language: 30 languages — 98.3% on Wikipedia
 - Subtype: JSON, YAML, HTML, Markdown, SQL, Dockerfile, etc.
 - MIME type: 90 types
 - Risk flags: API keys, JWTs, passwords, emails, SSH keys
@@ -104,13 +111,14 @@ echo '{"name": "test"}' | picotype --pretty
 - Language detection for code snippets
 
 **Technical details:**
-- ~1.5M parameters, ~9MB ONNX file
-- <6ms inference on CPU
+- ~1.5M parameters, ~9MB single-file ONNX
+- ~18ms inference on CPU
 - No tokenizer – works on raw UTF-8 bytes
 - 4 Matryoshka tiers for speed/accuracy tradeoff
 - Apache 2.0 license
 
 **Links:**
+- Paper: https://arxiv.org/abs/2608.14658
 - GitHub: https://github.com/eulogik/pico-type
 - PyPI: https://pypi.org/project/pico-type/
 - Browser demo: https://eulogik.github.io/pico-type/demo.html
@@ -122,7 +130,9 @@ echo '{"name": "test"}' | picotype --pretty
 **Tweet 1:**
 I trained a 1.5M parameter model that classifies content from raw bytes – no tokenizer needed.
 
-62 code languages, 30 text languages, 90 MIME types, risk flag detection – all in <6ms on CPU.
+62 code languages, 30 text languages, 90 MIME types, risk flag detection – in ~18ms on CPU.
+
+Paper: https://arxiv.org/abs/2608.14658
 
 Try the browser demo (runs entirely client-side): https://eulogik.github.io/pico-type/demo.html
 
@@ -131,10 +141,16 @@ Architecture: Bytes → 3 parallel Conv1D (k=3,5,7) → 2 BiAttention layers wit
 
 4 tiers (16d→576d) share one trunk. Switch accuracy/speed at inference with zero overhead.
 
-~9MB ONNX, Apache 2.0.
+~9MB single-file ONNX, Apache 2.0.
 
 **Tweet 3:**
+Results: 60.3% code language on The Heap (24 langs), 98.3% text language on Wikipedia (30 langs), 100% format heads.
+
+Trained on 8,709 GitHub files + 5,000 Wikipedia articles. Full paper: https://arxiv.org/abs/2608.14658
+
+**Tweet 4:**
 Links:
+📄 Paper: https://arxiv.org/abs/2608.14658
 📦 PyPI: pip install pico-type
 🐙 GitHub: https://github.com/eulogik/pico-type
 🤗 HuggingFace: https://huggingface.co/eulogik/pico-type
@@ -146,13 +162,13 @@ Built by @eulogik. Feedback welcome.
 
 ## 5. Hacker News (Show HN)
 
-**Title:** `Show HN: Byte-level content classifier – detects 62 languages from raw bytes, no tokenizer, 95% accuracy`
+**Title:** `Show HN: pico-type – byte-level content classifier (60.3% The Heap, 98.3% Wikipedia), paper on arXiv`
 
 **Body:**
 
-Hi HN, I built pico-type – a 1.5M-parameter model that classifies content directly from raw UTF-8 bytes. No tokenizer, no subword vocabulary, no pretrained embeddings.
+Hi HN, I built pico-type – a 1.5M-parameter model that classifies content directly from raw UTF-8 bytes. No tokenizer, no subword vocabulary, no pretrained embeddings. Paper: https://arxiv.org/abs/2608.14658
 
-It runs inference in <6ms on CPU, exports to a ~9MB ONNX file, and runs entirely in the browser via ONNX Runtime Web. You can try it here: https://eulogik.github.io/pico-type/demo.html
+It runs inference in ~18ms on CPU, exports to a ~9MB single-file ONNX, and runs entirely in the browser via ONNX Runtime Web. You can try it here: https://eulogik.github.io/pico-type/demo.html
 
 **What it does:** One forward pass produces 7 classification heads simultaneously:
 - Content type (code/text/image/config/etc.)
@@ -162,6 +178,11 @@ It runs inference in <6ms on CPU, exports to a ~9MB ONNX file, and runs entirely
 - MIME type (90 types)
 - Risk flags (API keys, JWTs, passwords)
 - Modality (textual vs binary)
+
+**Results (v2, real-data training on 8,709 GitHub + 5,000 Wikipedia samples):**
+- 60.3% code language on The Heap (24 langs, +57pp vs synthetic-only)
+- 98.3% text language on Wikipedia (30 langs, +79pp)
+- 100% on format-based heads
 
 **Quick try:**
 ```bash
@@ -178,6 +199,7 @@ echo "def hello(): pass" | picotype --pretty
 3. **Matryoshka for multi-head:** I use 4 tier slices (16d/64d/192d/576d) that share the trunk but have separate linear heads. This gives a clean speed-accuracy tradeoff. Has anyone seen this applied to multi-head classifiers specifically?
 
 **Links:**
+- Paper: https://arxiv.org/abs/2608.14658
 - GitHub: https://github.com/eulogik/pico-type
 - PyPI: https://pypi.org/project/pico-type/
 - HuggingFace: https://huggingface.co/eulogik/pico-type

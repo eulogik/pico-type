@@ -15,7 +15,7 @@ Add pico-type to Other Resources
 ### PR Description
 
 ```
-Add [pico-type](https://github.com/eulogik/pico-type) — a 1.5M-parameter byte-level content classifier that runs on raw UTF-8 bytes with no tokenizer. ~9MB ONNX model, <6ms CPU inference, 95.2% real-world accuracy across 7 classification heads (code language, text language, content type, subtype, MIME, risk, modality).
+Add [pico-type](https://github.com/eulogik/pico-type) — a 1.5M-parameter byte-level content classifier that runs on raw UTF-8 bytes with no tokenizer. ~9MB single-file ONNX, ~18ms CPU inference, 60.3% code language on The Heap & 98.3% text language on Wikipedia across 7 heads. [Paper](https://arxiv.org/abs/2608.14658)
 ```
 
 ### Exact Edit
@@ -39,7 +39,7 @@ Add [pico-type](https://github.com/eulogik/pico-type) — a 1.5M-parameter byte-
 
 ### [pico-type](https://github.com/eulogik/pico-type)
 
-1.5M-parameter byte-level content classifier with 7 heads (code language, text language, content type, subtype, MIME, risk, modality). Runs on raw UTF-8 bytes with no tokenizer. ~9MB ONNX, <6ms CPU inference, 95.2% real-world accuracy.
+1.5M-parameter byte-level content classifier with 7 heads (code language, text language, content type, subtype, MIME, risk, modality). Runs on raw UTF-8 bytes with no tokenizer. ~9MB single-file ONNX, ~18ms CPU inference, 60.3% code / 98.3% text language. [Paper](https://arxiv.org/abs/2608.14658).
 
 
 
@@ -63,7 +63,7 @@ Add pico-type to Inference Frameworks & Runtimes
 ### PR Description
 
 ```
-Add [pico-type](https://github.com/eulogik/pico-type) — a 1.5M-parameter byte-level content classifier optimized for edge inference. Runs on raw UTF-8 bytes with no tokenizer, ~9MB ONNX model, <6ms CPU inference, 95.2% real-world accuracy. Classifies content across 7 heads: code language, text language, content type, subtype, MIME, risk, and modality.
+Add [pico-type](https://github.com/eulogik/pico-type) — a 1.5M-parameter byte-level content classifier optimized for edge inference. Runs on raw UTF-8 bytes with no tokenizer, ~9MB single-file ONNX, ~18ms CPU inference, 60.3% code / 98.3% text language. Classifies content across 7 heads. [Paper](https://arxiv.org/abs/2608.14658).
 ```
 
 ### Exact Edit
@@ -128,8 +128,8 @@ Add [pico-type](https://github.com/eulogik/pico-type) — a 1.5M-parameter byte-
 -   🧠 **1.5M parameters** — ultra-lightweight architecture
 -   🔤 **Byte-level** — operates on raw UTF-8 bytes, no tokenizer required
 -   📦 **~9MB ONNX** — minimal deployment footprint
--   ⚡ **<6ms CPU inference** — real-time classification on commodity hardware
--   🎯 **95.2% accuracy** — production-grade real-world performance
+-   ⚡ **~18ms CPU inference** — real-time classification on commodity hardware
+-   🎯 **60.3% code lang (The Heap) / 98.3% text lang (Wikipedia)** — real-data v2 performance. [Paper](https://arxiv.org/abs/2608.14658)
 -   🏷️ **7 classification heads** — code language, text language, content type, subtype, MIME, risk, modality
 
 **🎯 Use Cases:**
@@ -166,7 +166,7 @@ Add pico-type to Related Repositories
 ### PR Description
 
 ```
-Add [pico-type](https://github.com/eulogik/pico-type) to Related Repositories — a 1.5M-parameter byte-level content classifier with ~9MB ONNX model and <6ms CPU inference. Demonstrates practical deployment of a quantized, tokenizer-free ML model for real-time content classification.
+Add [pico-type](https://github.com/eulogik/pico-type) to Related Repositories — a 1.5M-parameter byte-level content classifier with a ~9MB single-file ONNX model and ~18ms CPU inference. Demonstrates practical deployment of a tokenizer-free ML model. [Paper](https://arxiv.org/abs/2608.14658).
 ```
 
 ### Exact Edit
@@ -191,7 +191,7 @@ Add [pico-type](https://github.com/eulogik/pico-type) to Related Repositories �
 
 - [Awesome Efficient LLM & Diffusion](https://github.com/efficient-ml/awesome-efficient-llm-diffusion)
 - [Awesome Quantization Papers](https://github.com/Zhen-Dong/Awesome-Quantization-Papers)
-- [pico-type](https://github.com/eulogik/pico-type) - 1.5M-parameter byte-level content classifier with 7 heads (code language, text language, content type, subtype, MIME, risk, modality). Runs on raw UTF-8 bytes, no tokenizer. ~9MB ONNX, <6ms CPU inference, 95.2% real-world accuracy.
+- [pico-type](https://github.com/eulogik/pico-type) - 1.5M-parameter byte-level content classifier with 7 heads (code language, text language, content type, subtype, MIME, risk, modality). Runs on raw UTF-8 bytes, no tokenizer. ~9MB single-file ONNX, ~18ms CPU inference, 60.3% code / 98.3% text language. [Paper](https://arxiv.org/abs/2608.14658).
 
 ## Star History
 ```
