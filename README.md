@@ -169,7 +169,8 @@ All tiers share the same backbone; only the final linear projection layers diffe
 
 ## 📚 Resources
 
-- [Paper](paper/main.pdf) — Architecture, training, and evaluation details
+- [Paper (arXiv)](https://arxiv.org/abs/2608.14658) — Architecture, training, and evaluation details
+- [Paper PDF](paper/main.pdf) — Local copy of the paper
 - [Model Card](MODEL_CARD.md) — Detailed architecture and training configuration
 - [Walkthrough](walkthrough.md) — Development log and decisions
 - [Architecture Plan](docs/PLAN.md) — Original design document

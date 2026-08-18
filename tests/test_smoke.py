@@ -88,7 +88,7 @@ def test_synthetic_dataset():
 @pytest.mark.skipif(not os.path.exists(os.path.join(ONNX_DIR, "checkpoints", "picotype_base.onnx")), reason="ONNX model not found")
 def test_onnx_inference():
     session = load_onnx_model("base", os.path.join(ONNX_DIR, "checkpoints"))
-    text = "def hello(): pass"
+    text = b"def hello(): pass"
     result = run_onnx(session, text)
     for head in ["coarse", "modality", "subtype", "code_lang", "text_lang", "file_mime"]:
         assert head in result, f"missing {head}"
@@ -96,6 +96,15 @@ def test_onnx_inference():
         assert "confidence" in result[head], f"{head} missing confidence"
     assert "risk" in result
     assert len(result["risk"]) > 0
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(ONNX_DIR, "checkpoints", "picotype_base.onnx")), reason="ONNX model not found")
+def test_onnx_inference_binary():
+    session = load_onnx_model("base", os.path.join(ONNX_DIR, "checkpoints"))
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    result = run_onnx(session, png)
+    assert result["coarse"]["label"] == "image", result["coarse"]
+    assert result["modality"]["label"] == "binary_image", result["modality"]
 
 
 @pytest.mark.skipif(not os.path.exists(os.path.join(ONNX_DIR, "checkpoints", "picotype_base.onnx")), reason="ONNX model not found")

@@ -54,14 +54,14 @@ def handle_request(req: dict, session) -> dict:
 
         if tool == "classify":
             text = args.get("text", "")
-            result = run_onnx(session, text)
+            result = run_onnx(session, text.encode("utf-8"))
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "json", "json": result}]}}
 
         if tool == "classify_file":
             path = args.get("path", "")
             if not os.path.exists(path):
                 return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32000, "message": f"File not found: {path}"}}
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, "rb") as f:
                 text = f.read()
             result = run_onnx(session, text)
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "json", "json": result}]}}

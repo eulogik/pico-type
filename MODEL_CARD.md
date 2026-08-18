@@ -11,11 +11,14 @@ tags:
 - classifier
 pipeline_tag: text-classification
 library_name: pico-type
+arxiv: 2608.14658
 ---
 
 # pico-type
 
 A tiny **byte-level multi-head content classifier** (~1.5M parameters) that classifies any content into **7 categories** simultaneously from raw bytes — no tokenizer, no pretrained embeddings.
+
+> **Paper**: [pico-type: A 1.5M-Parameter Byte-Level Multi-Head Content Classifier](https://arxiv.org/abs/2608.14658) (arXiv:2608.14658, 2026)
 
 ## Architecture
 

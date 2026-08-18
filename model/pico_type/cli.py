@@ -52,9 +52,8 @@ def load_torch_model(tier: str = "base", checkpoint: str = ""):
     return model, tier
 
 
-def run_onnx(session, text: str, max_bytes: int = 1024) -> dict:
-    text_bytes = text.encode("utf-8")[:max_bytes]
-    ids = np.frombuffer(text_bytes, dtype=np.uint8).astype(np.int64)
+def run_onnx(session, data: bytes, max_bytes: int = 1024) -> dict:
+    ids = np.frombuffer(data[:max_bytes], dtype=np.uint8).astype(np.int64)
     seq_len = len(ids)
     if seq_len > max_bytes:
         ids = ids[:max_bytes]
@@ -86,11 +85,10 @@ def _softmax(x):
     return e / e.sum()
 
 
-def run_torch(model, tier: str, text: str, max_bytes: int = 1024) -> dict:
+def run_torch(model, tier: str, data: bytes, max_bytes: int = 1024) -> dict:
     import torch
     model = model[0] if isinstance(model, tuple) else model
-    text_bytes = text.encode("utf-8")[:max_bytes]
-    ids = torch.tensor([list(text_bytes)], dtype=torch.long)
+    ids = torch.tensor([list(data[:max_bytes])], dtype=torch.long)
     mask = torch.ones(1, ids.shape[1], dtype=torch.bool)
     with torch.no_grad():
         logits_dict = model(ids, mask)
@@ -109,17 +107,17 @@ def run_torch(model, tier: str, text: str, max_bytes: int = 1024) -> dict:
     return out
 
 
-def read_text(args) -> str:
+def read_input(args) -> bytes:
     if args.text:
-        return args.text
+        return args.text.encode("utf-8")
     if args.file:
-        with open(args.file, "r", encoding="utf-8", errors="replace") as f:
+        with open(args.file, "rb") as f:
             return f.read()
     if args.clip:
         import subprocess
-        return subprocess.check_output(["pbpaste"], text=True)
+        return subprocess.check_output(["pbpaste"]).rstrip(b"\n")
     if not sys.stdin.isatty():
-        return sys.stdin.read()
+        return sys.stdin.buffer.read()
     raise ValueError("No input provided. Use --text, --file, --clip, or pipe content.")
 
 
@@ -138,27 +136,27 @@ def build_parser():
 def main():
     args = build_parser().parse_args()
     try:
-        text = read_text(args)
+        data = read_input(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         sys.exit(1)
 
-    if not text.strip():
+    if not data.strip():
         print('{"error": "empty input"}')
         sys.exit(0)
 
     onnx_path = os.path.join(args.model_dir, f"picotype_{args.tier}.onnx")
     if os.path.exists(onnx_path):
         session = load_onnx_model(args.tier, args.model_dir)
-        result = run_onnx(session, text)
+        result = run_onnx(session, data)
     elif args.checkpoint:
         model = load_torch_model(args.tier, args.checkpoint)
-        result = run_torch(model, args.tier, text)
+        result = run_torch(model, args.tier, data)
     else:
         print(f"ONNX model not found at {onnx_path}. Use --checkpoint to use PyTorch.", file=sys.stderr)
         sys.exit(1)
 
-    result["text_length"] = len(text)
+    result["text_length"] = len(data)
     result["tier"] = args.tier
     indent = 2 if args.pretty else None
     json.dump(result, sys.stdout, indent=indent, ensure_ascii=False)

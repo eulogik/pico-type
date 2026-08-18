@@ -58,3 +58,12 @@ pico-type/
 
 # Wrangler dev state
 .wrangler/
+
+# --- Secrets / credentials (defensive) ---
+*.token
+*.pem
+credentials.json
+.netrc
+*_secrets.*
+# --- Promotion materials (not part of source) ---
+PROMOTE.md

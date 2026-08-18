@@ -70,7 +70,8 @@ def build_ui():
             """
             # pico-type 🔍
             A tiny byte-level multi-head content classifier (~1.5M params).  
-            Classifies content into **7 categories**: coarse type, modality, subtype, code language, text language, file MIME, and risk flags.
+            Classifies content into **7 categories**: coarse type, modality, subtype, code language, text language, file MIME, and risk flags.  
+            [Paper (arXiv:2608.14658)](https://arxiv.org/abs/2608.14658)
             """
         )
 

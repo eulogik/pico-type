@@ -24,7 +24,7 @@ Existing clipboard tools are regex-only (ClipGate, 13 types) or LLM-powered (nee
 - Rust CLI (`crates/picotype/`) — pending
 - Rust MCP server (`crates/picotype-mcp/`) — pending
 - Browser extension, Raycast/Alfred/VSCode extensions — pending
-- arXiv paper ✅ (`paper/main.tex` — updated with v0.2 real-data results, PDF compiles)
+- arXiv paper ✅ ([arXiv:2608.14658](https://arxiv.org/abs/2608.14658) — `paper/main.tex` — updated with v0.2 real-data results, PDF compiles)
 
 ---
 
