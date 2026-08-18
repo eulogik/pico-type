@@ -2,15 +2,15 @@
 
 import json
 
-from model.pico_type.arch import PicoTypeConfig, TIERS
+from model.pico_type.arch import TIERS, PicoTypeConfig
 from model.pico_type.labels import (
     COARSE_LABELS,
-    MODALITY_LABELS,
-    SUBTYPE_LABELS,
     CODE_LANG_LABELS,
-    TEXT_LANG_LABELS,
     FILE_MIME_LABELS,
+    MODALITY_LABELS,
     RISK_LABELS,
+    SUBTYPE_LABELS,
+    TEXT_LANG_LABELS,
 )
 
 LABEL_TABLES = {

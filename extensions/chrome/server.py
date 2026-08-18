@@ -11,7 +11,7 @@ HOST = "127.0.0.1"
 PORT = 8130
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-from model.pico_type.cli import load_onnx_model, run_onnx  # noqa: E402
+from model.pico_type.cli import load_onnx_model, run_onnx
 
 
 class Handler(BaseHTTPRequestHandler):
