@@ -39,6 +39,8 @@ MAX_BYTES = 1024
 
 
 def encode(batch_texts: list[bytes], max_bytes: int = MAX_BYTES):
+    if not batch_texts:
+        raise ValueError("encode() called with empty batch")
     ids = [[b for b in t[:max_bytes]] for t in batch_texts]
     ln = max(len(x) for x in ids)
     pad = torch.zeros(len(ids), ln, dtype=torch.long)
@@ -47,6 +49,38 @@ def encode(batch_texts: list[bytes], max_bytes: int = MAX_BYTES):
         pad[i, : len(x)] = torch.tensor(x)
         mask[i, : len(x)] = True
     return pad, mask
+
+
+def latest_ckpt(out_dir: str) -> str | None:
+    """Numeric (not lexicographic) latest arth_step_*.pt — 'arth_step_100' > 'arth_step_50'."""
+    best, best_n = None, -1
+    if not os.path.isdir(out_dir):
+        return None
+    for f in os.listdir(out_dir):
+        if f.startswith("arth_step_") and f.endswith(".pt"):
+            try:
+                n = int(f[len("arth_step_") : -len(".pt")])
+            except ValueError:
+                continue
+            if n > best_n:
+                best, best_n = os.path.join(out_dir, f), n
+    return best
+
+
+def make_optim(student: ArthModel, args, unfrozen: bool) -> torch.optim.Optimizer:
+    """Group structure MUST match what was saved (1 group Phase A, 2 after unfreeze)."""
+    heads = [p for n, p in student.named_parameters() if not n.startswith("trunk.")]
+    groups: list[dict] = [{"params": heads, "lr": args.lr, "weight_decay": 0.01}]
+    if unfrozen:
+        trunk = [p for n, p in student.named_parameters() if n.startswith("trunk.")]
+        groups.append({"params": trunk, "lr": args.lr_trunk, "weight_decay": 0.01})
+    return torch.optim.AdamW(groups)
+
+
+def unfreeze_trunk(student: ArthModel) -> None:
+    for p in student.trunk.parameters():
+        p.requires_grad_(True)
+    student.trunk.train()
 
 
 def load_jsonl(name: str, subset: int = 0) -> list[dict]:
@@ -111,32 +145,36 @@ def train(args) -> dict:
     teacher.eval()
     streams = Streams(seed=args.seed, subset=args.subset)
 
-    opt = torch.optim.AdamW(
-        [p for p in student.parameters() if p.requires_grad], lr=args.lr, weight_decay=0.01
-    )
-    unfrozen = False
+    # Resume FIRST, then build optimizer with the saved group structure:
+    # post-unfreeze ckpts have 2 param_groups; loading them into a 1-group
+    # optimizer raises ValueError. Saved group count is the source of truth.
+    ck = None
+    ckpt_path = latest_ckpt(args.out) if args.resume else None
+    if ckpt_path:
+        ck = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        student.load_state_dict(ck["student"])
+
+    start = (ck["step"] + 1) if ck else 0
+    unfrozen = bool(ck and len(ck["optim"]["param_groups"]) > 1)
+    if unfrozen:
+        unfreeze_trunk(student)
+        print(f"resume: trunk already unfrozen ({os.path.basename(ckpt_path)})")
+
+    opt = make_optim(student, args, unfrozen)
+    if ck:
+        opt.load_state_dict(ck["optim"])
+        print(f"resumed from step {start}")
+
     hist: list[dict] = []
     os.makedirs(args.out, exist_ok=True)
 
-    start = 0
-    ckpts = sorted(f for f in os.listdir(args.out) if f.startswith("arth_step_") and f.endswith(".pt"))
-    if args.resume and ckpts:
-        ck = torch.load(os.path.join(args.out, ckpts[-1]), map_location="cpu", weights_only=False)
-        student.load_state_dict(ck["student"])
-        opt.load_state_dict(ck["optim"])
-        start = ck["step"] + 1
-        if start >= args.freeze_steps and not unfrozen:
-            for p in student.trunk.parameters():
-                p.requires_grad_(True)
-            opt.add_param_group({"params": list(student.trunk.parameters()), "lr": args.lr_trunk})
-            unfrozen = True
-        print(f"resumed from step {start}")
-
     for step in range(start, args.steps):
         if step >= args.freeze_steps and not unfrozen:
-            for p in student.trunk.parameters():
-                p.requires_grad_(True)
-            opt.add_param_group({"params": list(student.trunk.parameters()), "lr": args.lr_trunk})
+            unfreeze_trunk(student)
+            opt.add_param_group(
+                {"params": [p for n, p in student.named_parameters() if n.startswith("trunk.")],
+                 "lr": args.lr_trunk, "weight_decay": 0.01}
+            )
             unfrozen = True
             print(f"step {step}: trunk unfrozen (lr={args.lr_trunk})")
 
@@ -210,11 +248,14 @@ def train(args) -> dict:
 
         # --- relational: score each option independently ---
         if rel:
-            opt_bytes, opt_owner = [], []
-            for j, item in enumerate(rel):
+            opt_bytes = []
+            offsets = []
+            cursor = 0
+            for item in rel:
+                offsets.append(cursor)
                 for o in item["options"]:
                     opt_bytes.append(o.encode("utf-8", errors="replace")[:512])
-                    opt_owner.append((j, item["correct"]))
+                    cursor += 1
             oids, omask = encode(opt_bytes, max_bytes=512)
             oids, omask = oids.to(device), omask.to(device)
             op = student.pooled(oids, omask)
@@ -224,10 +265,10 @@ def train(args) -> dict:
                 device=device,
             )
             scores = student.relational(op, feats)
-            # group per item (4 options each)
             l_rel = torch.zeros((), device=device)
-            for j, item in enumerate(rel):
-                grp = scores[j * 4 : j * 4 + 4].unsqueeze(0)
+            for i, item in enumerate(rel):
+                k = len(item["options"])
+                grp = scores[offsets[i] : offsets[i] + k].unsqueeze(0)
                 l_rel = l_rel + F.cross_entropy(grp, torch.tensor([item["correct"]], device=device))
             losses["rel"] = l_rel / len(rel)
 
@@ -238,7 +279,10 @@ def train(args) -> dict:
             + args.w_risk * losses.get("risk", torch.zeros(()))
             + args.lambda_cal * losses.get("cal", torch.zeros(()))
         )
-        assert torch.isfinite(total), f"non-finite loss at step {step}: { {k: float(v) for k, v in losses.items()} }"
+        if not torch.isfinite(total):
+            raise FloatingPointError(
+                f"non-finite loss at step {step}: { {k: float(v.detach()) for k, v in losses.items()} }"
+            )
         total.backward()
         torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
         opt.step()
@@ -282,6 +326,9 @@ def main() -> None:
     args = ap.parse_args()
     out = train(args)
     h = out["history"]
+    if not h:
+        print("no steps run (resume start >= --steps?)")
+        return
     print(f"done: {len(h)} steps, total {h[0]['total']:.4f} -> {h[-1]['total']:.4f}")
 
 

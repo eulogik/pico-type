@@ -17,8 +17,15 @@ import json
 import os
 import random
 
-DATA_ROOT = "data/raw/arth"
-MANIFEST_PATH = "data/arth_manifest.json"
+DATA_ROOT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data", "raw", "arth",
+)
+MANIFEST_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data", "arth_manifest.json",
+)
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 RISK14 = [
     "api_key", "jwt", "ssh_key", "password", "email", "phone",
@@ -348,7 +355,9 @@ def make_structural_pairs(n: int, seed: int) -> list[dict]:
         for _ in range(per):
             corrupts = set()
             t = tpl
-            while len(corrupts) < 3:
+            attempts = 0
+            while len(corrupts) < 3 and attempts < 50:
+                attempts += 1
                 c = rng.choice(["drop_closer", "drop_opener", "swap"])
                 b = list(t)
                 if c == "drop_closer":
@@ -434,15 +443,15 @@ def _load_hex_pairs(path: str) -> list[tuple[bytes, str]]:
     return [(binascii.unhexlify(r[0]), r[1]) for r in rows]
 
 
-def load_heap_code(path: str = "model/pico_type/data/real/code_samples.json") -> list[tuple[bytes, str]]:
+def load_heap_code(path: str = os.path.join(_ROOT, "model/pico_type/data/real/code_samples.json")) -> list[tuple[bytes, str]]:
     return _load_hex_pairs(path)
 
 
-def load_wiki_text(path: str = "model/pico_type/data/real/text_samples.json") -> list[tuple[bytes, str]]:
+def load_wiki_text(path: str = os.path.join(_ROOT, "model/pico_type/data/real/text_samples.json")) -> list[tuple[bytes, str]]:
     return _load_hex_pairs(path)
 
 
-def load_enron(path: str = "data/raw/enron.json") -> list[dict]:
+def load_enron(path: str = os.path.join(_ROOT, "data/raw/enron.json")) -> list[dict]:
     """Spam/ham. Local cache first; optional `datasets` download; else skip."""
     if os.path.exists(path):
         with open(path) as f:
@@ -457,7 +466,7 @@ def load_enron(path: str = "data/raw/enron.json") -> list[dict]:
         return []
 
 
-def load_toxicchat(path: str = "data/raw/toxicchat.json") -> list[dict]:
+def load_toxicchat(path: str = os.path.join(_ROOT, "data/raw/toxicchat.json")) -> list[dict]:
     """Jailbreak eval. Local cache first; optional download; else skip."""
     if os.path.exists(path):
         with open(path) as f:
@@ -473,7 +482,7 @@ def load_toxicchat(path: str = "data/raw/toxicchat.json") -> list[dict]:
         return []
 
 
-def load_typed_decisions(path: str = "data/raw/typed_decisions.json") -> list[dict]:
+def load_typed_decisions(path: str = os.path.join(_ROOT, "data/raw/typed_decisions.json")) -> list[dict]:
     """400-case transfer subset (NIRNAY plan). Interface ready; file absent -> []."""
     if os.path.exists(path):
         with open(path) as f:
@@ -546,6 +555,11 @@ def verify_manifest(path: str = MANIFEST_PATH) -> bool:
         items = fn(seed)
         root = merkle_root([item_hash(it) for it in items])
         if root != saved["splits"][name]["root"]:
+            print(f"MISMATCH {name}")
+            ok = False
+    for name, rows in (("heap_code", load_heap_code()), ("wiki_text", load_wiki_text())):
+        hh = [hashlib.sha256(b + l.encode()).hexdigest() for b, l in rows]
+        if merkle_root(hh) != saved["splits"][name]["root"]:
             print(f"MISMATCH {name}")
             ok = False
     print("manifest verify:", "PASS" if ok else "FAIL")

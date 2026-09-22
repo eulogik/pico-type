@@ -242,9 +242,38 @@ def test_manifest_and_loaders():
     assert ad.load_enron() == [] and ad.load_toxicchat() == [] and ad.load_typed_decisions() == []
 
 
+def test_pooled_grad_flow(arth):
+    """Phase A: frozen trunk -> pooled has no grad. Phase B: unfrozen -> grad flows
+    (regression: pooled() used to hard-wrap no_grad, starving trunk of sem/risk/rel grads)."""
+    ids, mask = _ids_mask(b"def f(x): return x")
+    p = arth.pooled(ids, mask)
+    assert not p.requires_grad  # Phase A (fixture trunk frozen)
+    for prm in arth.trunk.parameters():
+        prm.requires_grad_(True)
+    try:
+        p2 = arth.pooled(ids, mask)
+        assert p2.requires_grad  # Phase B: trunk MUST see grads from pooled paths
+    finally:
+        arth.trunk.requires_grad_(False)
+        arth.trunk.eval()
+
+
+def test_latest_ckpt_numeric_sort(tmp_path):
+    from model.pico_type.arth_train import latest_ckpt
+
+    for n in (50, 100, 900):
+        (tmp_path / f"arth_step_{n}.pt").write_bytes(b"x")
+    assert latest_ckpt(str(tmp_path)).endswith("arth_step_900.pt")  # not lexicographic 900<100
+    (tmp_path / "arth_step_1000.pt").write_bytes(b"x")
+    assert latest_ckpt(str(tmp_path)).endswith("arth_step_1000.pt")
+    assert latest_ckpt(str(tmp_path / "missing")) is None
+
+
 def test_train_losses_finite():
     from model.pico_type.arth_train import Streams, encode
 
+    if not os.path.exists(os.path.join(ROOT, "data", "raw", "arth", "riskpp_synth.jsonl")):
+        pytest.skip("corpora not built")
     st = Streams(seed=7, subset=10)
     leg, sem, rsk, rel = st.sample(2, 2, 2, 1)
     assert len(leg) == 2 and len(sem) == 2 and len(rsk) == 2 and len(rel) == 1
@@ -253,24 +282,56 @@ def test_train_losses_finite():
     assert int(mask[0].sum()) == 11
 
 
+def _train_args(tmp_path, **kw):
+    base = {
+        "steps": 2, "subset": 20, "freeze_steps": 2000, "n_legacy": 2, "n_sem": 2,
+        "n_risk": 2, "n_rel": 1, "lr": 3e-4, "lr_trunk": 3e-5, "kd_temp": 2.0,
+        "w_legacy": 1.0, "w_sem": 1.0, "w_rel": 0.5, "w_risk": 0.5,
+        "lambda_cal": 0.005, "out": str(tmp_path), "log_every": 1,
+        "save_every": 2, "resume": False, "seed": 7,
+    }
+    base.update(kw)
+    return argparse.Namespace(**base)
+
+
 def test_train_two_steps(tmp_path):
     from model.pico_type import arth_train as at
 
     if not os.path.exists(os.path.join(ROOT, "data", "raw", "arth", "riskpp_synth.jsonl")):
         pytest.skip("corpora not built")
-    args = argparse.Namespace(
-        steps=2, subset=20, freeze_steps=2000, n_legacy=2, n_sem=2, n_risk=2, n_rel=1,
-        lr=3e-4, lr_trunk=3e-5, kd_temp=2.0, w_legacy=1.0, w_sem=1.0, w_rel=0.5,
-        w_risk=0.5, lambda_cal=0.005, out=str(tmp_path), log_every=1,
-        save_every=2, resume=False, seed=7,
-    )
-    out = at.train(args)
+    out = at.train(_train_args(tmp_path))
     import math
 
     assert len(out["history"]) == 2
     for rec in out["history"]:
         assert all(abs(v) != float("inf") and not math.isnan(v) for k, v in rec.items() if k != "step")
     assert os.path.exists(os.path.join(str(tmp_path), "arth_final.pt"))
+
+
+def test_resume_across_unfreeze(tmp_path):
+    """Regression: post-unfreeze ckpt (2 param_groups) must resume without
+    ValueError and keep training (was: load_state_dict group-count crash)."""
+    from model.pico_type import arth_train as at
+
+    if not os.path.exists(os.path.join(ROOT, "data", "raw", "arth", "riskpp_synth.jsonl")):
+        pytest.skip("corpora not built")
+    # phase A step0 (1-group save), unfreeze at step1, step1 save (2-group)
+    at.train(_train_args(tmp_path, steps=2, freeze_steps=1, save_every=1))
+    assert at.latest_ckpt(str(tmp_path)).endswith("arth_step_2.pt")
+    out = at.train(_train_args(tmp_path, steps=3, freeze_steps=1, save_every=1, resume=True))
+    assert len(out["history"]) == 1  # only step 2 left
+    assert out["history"][0]["step"] == 2
+    import math
+
+    assert all(
+        math.isfinite(v) for k, v in out["history"][0].items() if k != "step"
+    )
+
+
+def test_verify_manifest():
+    from model.pico_type.arth_data import verify_manifest
+
+    assert verify_manifest() is True
 
 
 def test_latency_smoke(arth):

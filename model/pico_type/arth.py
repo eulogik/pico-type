@@ -246,14 +246,16 @@ class ArthModel(nn.Module):
         self.calibrator = Calibrator()
 
     def pooled(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
-            x = self.trunk.embed(ids).transpose(1, 2)
-            for b in self.trunk.conv_blocks:
-                x = b(x)
-            x = x.transpose(1, 2)
-            for b in self.trunk.attn_blocks:
-                x = b(x, mask)
-            return self.trunk.pool(x, mask)
+        """Trunk pooled features. No no_grad here: Phase A freezes trunk params
+        (so no graph builds); Phase B unfreezes and MUST receive grads from
+        semantic/risk/rel paths (inference callers simply ignore grad)."""
+        x = self.trunk.embed(ids).transpose(1, 2)
+        for b in self.trunk.conv_blocks:
+            x = b(x)
+        x = x.transpose(1, 2)
+        for b in self.trunk.attn_blocks:
+            x = b(x, mask)
+        return self.trunk.pool(x, mask)
 
     def legacy(self, ids: torch.Tensor, mask: torch.Tensor, tier: str = "base") -> dict[str, torch.Tensor]:
         with torch.no_grad():
