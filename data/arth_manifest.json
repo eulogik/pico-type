@@ -1,0 +1,42 @@
+{
+  "seed": 7,
+  "splits": {
+    "riskpp_synth": {
+      "n": 4000,
+      "root": "757df8acde8073b9868be13ccbfe0845bb2d72c2f4f2f134bb993c54a03276de"
+    },
+    "semantic_choice": {
+      "n": 6000,
+      "root": "380f03cdc094f958f319d92ecb0d031cd4c23aa20442b2625074b6cdcdf05cae"
+    },
+    "semantic_score": {
+      "n": 2000,
+      "root": "b8d7c34ed0bde38e575f31814fe41f8f20e88f2c612324e3e346f16fc7c97a17"
+    },
+    "semantic_noul": {
+      "n": 2000,
+      "root": "e1d130c49e3b4757f129b0f769bffa802f3f75e5fb5b71b843bd6b5e18324ef6"
+    },
+    "structural": {
+      "n": 3000,
+      "root": "d114695f697a380c555008002307059e3975aca86c489d789cbdd910f8074f5b"
+    },
+    "invoice": {
+      "n": 2000,
+      "root": "1a5b05408a073fc03b929372bb896abbe81d740ff16f1d775ee2f130ef2f7dc2"
+    },
+    "unanswerable": {
+      "n": 2000,
+      "root": "ac73187b03ce5ecdc191498e450d85e400911660dab89a5c4401160be9504639"
+    },
+    "heap_code": {
+      "n": 8709,
+      "root": "8c2e03b4332072bc9ba4c541b69160c324d83fe9101bcb17d21f0f71929e587a"
+    },
+    "wiki_text": {
+      "n": 5000,
+      "root": "c4e547bbd680a89f0b55f1b459cd0fc38c213f25bb5bbb8371e95d3b49fb8582"
+    }
+  },
+  "frozen": true
+}

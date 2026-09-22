@@ -170,6 +170,77 @@ def test_structural_features_deterministic():
     assert broken[1] >= 0  # imbalance slot exists
 
 
+def test_riskpp_generators():
+    from model.pico_type.arth_data import RISK14, RISKPP_GENERATORS
+
+    assert len(RISK14) == 14
+    total_pos = 0
+    for gen in RISKPP_GENERATORS.values():
+        items = gen(20, 7)
+        assert len(items) == 20
+        for it in items:
+            assert len(it["risk14"]) == 14
+            assert set(it["risk14"]) <= {0, 1}
+            assert len(it["input"]) > 0
+        total_pos += sum(1 for it in items if any(it["risk14"]))
+    assert total_pos > len(RISKPP_GENERATORS) * 10
+
+
+def test_no_real_secrets():
+    import re
+
+    from model.pico_type.arth_data import RISKPP_GENERATORS
+
+    cred = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|\b\d{3}-\d{2}-\d{4}\b|\b4\d{15}\b")
+    for gen in RISKPP_GENERATORS.values():
+        for it in gen(50, 11):
+            t = it["input"]
+            for m in cred.finditer(t):
+                ctx = t[max(0, m.start() - 30) : m.end() + 30]
+                assert "EXAMPLE" in ctx or re.fullmatch(r"(000|666|9\d\d)-\d{2}-\d{4}", m.group(0)), m.group(0)
+
+
+def test_decision_shapes():
+    from model.pico_type import arth_data as ad
+
+    ch = ad.make_choice_decisions(6, 7)
+    assert len(ch) == 6
+    for it in ch:
+        assert len(it["options"]) == 4 and 0 <= it["correct"] < 4 and it["mode"] == "choice"
+    sc = ad.make_score_decisions(4, 7)
+    for it in sc:
+        assert len(it["scores"]) == len(it["options"]) and it["mode"] == "score"
+    nl = ad.make_noul_decisions(4, 7)
+    assert all(it["correct"] is None and it["mode"] == "noul" for it in nl)
+    st = ad.make_structural_pairs(4, 7)
+    assert all(len(it["options"]) == 4 and 0 <= it["correct"] < 4 for it in st)
+    un = ad.make_unanswerable(4, 7)
+    assert all(it["correct"] is None and "TOTAL:" not in it["input"] for it in un)
+
+
+def test_data_determinism():
+    from model.pico_type import arth_data as ad
+
+    a = ad.gen_xss_payload(10, 7)
+    b = ad.gen_xss_payload(10, 7)
+    assert [ad.item_hash(x) for x in a] == [ad.item_hash(x) for x in b]
+    assert ad.item_hash(a[0]) == ad.item_hash(dict(a[0]))
+
+
+def test_manifest_and_loaders():
+    import json
+
+    from model.pico_type import arth_data as ad
+
+    with open(os.path.join(ROOT, "data", "arth_manifest.json")) as f:
+        meta = json.load(f)
+    assert meta["frozen"] is True and meta["seed"] == 7
+    assert meta["splits"]["riskpp_synth"]["n"] == 4000
+    assert meta["splits"]["heap_code"]["n"] == 8709
+    assert meta["splits"]["wiki_text"]["n"] == 5000
+    assert ad.load_enron() == [] and ad.load_toxicchat() == [] and ad.load_typed_decisions() == []
+
+
 def test_latency_smoke(arth):
     ids, mask = _ids_mask(b"x = 1\n" * 100)
     joined, spans = mark_options(b"x = 1", [b"a", b"b", b"c", b"d"])
