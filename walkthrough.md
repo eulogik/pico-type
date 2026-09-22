@@ -195,6 +195,7 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 - **Demos run** (plumbing only, uniform outputs = untrained): semantic 4-way choice + relational balanced-vs-broken scoring.
 - **Pre-existing inconsistency found (not fixed, out of scope)**: `run_torch` (short seq) vs `run_onnx` (padded-1024) disagree ≤0.1 prob on short inputs — conv has no mask so edge effects differ. Training batches are padded, so KD stays consistent.
 - **Plan doc updated**: init source, confirmed param budget (+size warning: 4.6–5.4M → ~30–34MB FP32 possible over ≤27MB target), latency truth, all in `PICO-TYPE-V2-Breakthrough-Plan.md`.
+- **Risk++ wired** (`model/pico_type/arth.py::RiskPlusPlusHead`): 14 labels (6 v0.2 overlaps first for alignment), Matryoshka slices per tier (238/910/2702/8078 params), 6 rows warm-started **bit-exact** from frozen trunk risk head (all tiers), 8 new rows random-init. `scripts/temperatures.json` (9 mode×bucket defaults @1.0). Viral-demo dry run: api_key=0.78 fires on AWS key (warm-start signal works); new labels spurious until trained (expected). Full e2e P50 11.6ms (≤21ms gate). **21/21 tests green** (4 new Risk++ tests: shapes, warm-start equality, AWS-key signal, temps loading).
 
 ### Training, Deployment & Publishing
 - **Training**: 1700 steps completed. eval_loss improved 6.33 (step 0) → 2.72 (step 800) → **1.97 (step 1700, best.pt)**. Subtype/code_lang accuracy dipped (overfitting), text_lang/risk improved.

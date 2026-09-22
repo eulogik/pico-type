@@ -24,7 +24,21 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .arch import PicoType, PicoTypeConfig
+from .arch import TIERS, MatryoshkaHead, PicoType, PicoTypeConfig
+from .labels import RISK_LABELS
+
+RISK_PLUS_NEW = [
+    "prompt_injection",
+    "jailbreak",
+    "pii_ssn",
+    "pii_card",
+    "secrets_aws",
+    "secrets_github",
+    "sql_injection",
+    "xss_payload",
+]
+RISK_PLUS_LABELS = list(RISK_LABELS) + RISK_PLUS_NEW
+assert len(RISK_PLUS_LABELS) == 14
 
 SEP = b"\x00"
 MAX_INPUT_BYTES = 1536
@@ -150,6 +164,26 @@ class RelationalHead(nn.Module):
         return self.scorer(torch.cat([pooled, feats], dim=1)).squeeze(-1)
 
 
+class RiskPlusPlusHead(nn.Module):
+    """14-label multi-label risk head (Matryoshka slices). UNTRAINED stub in Wk 1-2,
+    except the 6 overlapping labels warm-started from the frozen v0.2 risk head."""
+
+    def __init__(self, trunk_dim: int = 576, tiers: dict | None = None):
+        super().__init__()
+        self.head = MatryoshkaHead(trunk_dim, dict(tiers or TIERS), len(RISK_PLUS_LABELS))
+
+    def warm_start_from(self, trunk_risk) -> None:
+        """Copy the 6 learned v0.2 risk rows per tier; 8 new rows stay random-init."""
+        with torch.no_grad():
+            for tier, lin in self.head.linears.items():
+                src = trunk_risk.linears[tier]
+                lin.weight[: len(RISK_LABELS)].copy_(src.weight)
+                lin.bias[: len(RISK_LABELS)].copy_(src.bias)
+
+    def forward(self, pooled: torch.Tensor, tier: str = "base") -> torch.Tensor:
+        return self.head(pooled, tier)
+
+
 class ActHead(nn.Module):
     """Act vs escalate from [pooled, top1, margin, entropy, k/255]. UNTRAINED stub."""
 
@@ -206,6 +240,8 @@ class ArthModel(nn.Module):
         self.trunk.eval()
         self.semantic = SemanticHead()
         self.relational = RelationalHead()
+        self.riskpp = RiskPlusPlusHead()
+        self.riskpp.warm_start_from(self.trunk.heads["risk"])
         self.act = ActHead()
         self.calibrator = Calibrator()
 

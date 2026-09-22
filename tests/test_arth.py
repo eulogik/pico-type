@@ -108,6 +108,45 @@ def test_legacy_parity(arth):
             assert lt[h][int(r[h][0].argmax())] == ref[key][h], (name, h)
 
 
+def test_riskpp_shapes_and_labels(arth):
+    from model.pico_type.arth import RISK_PLUS_LABELS
+    from model.pico_type.labels import RISK_LABELS
+
+    assert len(RISK_PLUS_LABELS) == 14
+    assert RISK_PLUS_LABELS[:6] == list(RISK_LABELS)
+    pooled = torch.randn(2, 576)
+    for tier in ("tiny", "small", "base", "pro"):
+        out = arth.riskpp(pooled, tier)
+        assert out.shape == (2, 14), (tier, out.shape)
+
+
+def test_riskpp_warm_start(arth):
+    for tier in ("tiny", "small", "base", "pro"):
+        a = arth.riskpp.head.linears[tier].weight[:6]
+        b = arth.trunk.heads["risk"].linears[tier].weight
+        assert torch.equal(a, b), tier
+        ba = arth.riskpp.head.linears[tier].bias[:6]
+        bb = arth.trunk.heads["risk"].linears[tier].bias
+        assert torch.equal(ba, bb), tier
+
+
+def test_riskpp_aws_key_signal(arth):
+    ids, mask = _ids_mask(b"aws_access_key_id = AKIAIOSFODNN7EXAMPLE")
+    p = arth.pooled(ids, mask)
+    from model.pico_type.arth import RISK_PLUS_LABELS
+
+    probs = torch.sigmoid(arth.riskpp(p)).tolist()[0]
+    assert probs[RISK_PLUS_LABELS.index("api_key")] > 0.5
+
+
+def test_calibrator_loads_defaults():
+    from model.pico_type.arth import Calibrator
+
+    c = Calibrator(os.path.join(ROOT, "scripts", "temperatures.json"))
+    assert c.temp("choice", 4) == 1.0
+    assert c.temp("noul", 15) == 1.0
+
+
 def test_calibrator_buckets():
     c = Calibrator()
     assert c.temp("choice", 4) == 1.0
