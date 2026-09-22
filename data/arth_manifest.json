@@ -5,6 +5,10 @@
       "n": 4000,
       "root": "757df8acde8073b9868be13ccbfe0845bb2d72c2f4f2f134bb993c54a03276de"
     },
+    "benign_hard": {
+      "n": 1500,
+      "root": "70917575a3e87fa16edb7fc44eab59a3fdc028781d788df52a683eba64b07f1b"
+    },
     "semantic_choice": {
       "n": 6000,
       "root": "380f03cdc094f958f319d92ecb0d031cd4c23aa20442b2625074b6cdcdf05cae"

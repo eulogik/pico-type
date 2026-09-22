@@ -252,6 +252,62 @@ RISKPP_GENERATORS = {
     "xss_payload": gen_xss_payload,
 }
 
+# --- hard negatives (FP audit 2026-09-22: 7/11 benign false positives after first
+# full run — generator negs were only 5 reused templates. This split teaches
+# "benign" itself. Separate from RISKPP_GENERATORS so riskpp_synth root is stable. ---
+
+BENIGN_FAMILIES = [
+    lambda rng: f"Hi {rng.choice(['team','all','Alex','Sam'])},\nPlease {rng.choice(['review','check','look at'])} the attached {rng.choice(['report','doc','spreadsheet'])} when you get a chance.\nThanks,\n{rng.choice(['Alex','Sam','Jordan'])}\n",
+    lambda rng: f"Ticket #{rng.randint(1000,9999)}: customer {rng.choice(['reports','says','notes'])} the {rng.choice(['export','login','search'])} button is {rng.choice(['slow','flaky','missing'])} on {rng.choice(['large files','mobile','staging'])}.\n",
+    lambda rng: f"Meeting notes 2026-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}:\n- {rng.choice(['roadmap','hiring','infra','budget'])} review\n- {rng.choice(['updates','risks','wins'])}\n- next: {rng.choice(['sync','demo','retro'])}\n",
+    lambda rng: f"Recipe: {rng.randint(100,500)}g flour, {rng.randint(10,200)}g sugar, {rng.randint(1,4)} eggs. Bake at {rng.randint(150,220)}C for {rng.randint(10,60)} minutes.\n",
+    lambda rng: f"TODO:\n- {rng.choice(['fix','update','refactor'])} {rng.choice(['flaky test','changelog','deps'])}\n- {rng.choice(['ship','review','draft'])} {rng.choice(['release','PR','notes'])}\n",
+    lambda rng: f"print('hello world {rng.randint(1,9999)}')\n",
+    lambda rng: f"def {rng.choice(['add','mul','join'])}(a, b):\n    return a {rng.choice(['+','*'])} b\n",
+    lambda rng: f"class {rng.choice(['Point','User','Config'])}:\n    def __init__(self, {rng.choice(['x','name','value'])}):\n        self.{rng.choice(['x','name','value'])} = {rng.choice(['x','name','value'])}\n",
+    lambda rng: f"SELECT {rng.choice(['id, name','count(*)','title'])} FROM {rng.choice(['users','orders','posts'])} WHERE {rng.choice(['id','status'])} = {rng.randint(1,999)} LIMIT {rng.randint(1,50)};\n",
+    lambda rng: f'{{"id": {rng.randint(1,9999)}, "name": "item{rng.randint(1,999)}", "active": {str(rng.random()<0.5).lower()}}}',
+    lambda rng: f"[{', '.join(str(rng.randint(1,999)) for _ in range(rng.randint(3,8)))}]",
+    lambda rng: f"The {rng.choice(['quick','quiet','bright'])} {rng.choice(['fox','cat','bird'])} {rng.choice(['jumps','sits','flies'])} over the {rng.choice(['lazy','tall','old'])} {rng.choice(['dog','tree','hill'])}.",
+    lambda rng: f"Version {rng.randint(0,9)}.{rng.randint(0,20)}.{rng.randint(0,50)} released {rng.choice(['Monday','Tuesday','Wednesday','Thursday','Friday'])}.\n",
+    lambda rng: f"for (let i = 0; i < {rng.randint(2,50)}; i++) {{\n  acc += f(i);\n}}\n",
+    lambda rng: f"-- config\nhost: {rng.choice(['localhost','staging','prod'])}\nport: {rng.randint(1024,65535)}\nretries: {rng.randint(1,10)}\n",
+    lambda rng: f"import {rng.choice(['os','sys','json'])}  # {rng.choice(['utils','io','config'])}\n",
+    lambda rng: f"Dear {rng.choice(['customer','partner','team'])},\nyour {rng.choice(['invoice','order','request'])} #{rng.randint(10000,99999)} is {rng.choice(['approved','pending','scheduled'])}.\n",
+    lambda rng: f"{rng.choice(['GET','POST','PUT'])} /api/v{rng.randint(1,3)}/{rng.choice(['users','items','health'])} HTTP/1.1\nHost: example{rng.randint(1,99)}.com\n",
+    lambda rng: f"font-size: {rng.randint(10,40)}px; color: #{rng.randint(0,0xFFFFFF):06x}; margin: {rng.randint(0,64)}px;\n",
+    lambda rng: f"## {rng.choice(['Overview','Details','Notes'])}\n\n{rng.choice(['This section','The following','Key points'])} {rng.choice(['summarizes','lists','describes'])} {rng.choice(['the plan','results','options'])}.\n",
+    lambda rng: f"function {rng.choice(['handler','render','parse'])}(req, res) {{\n  res.status({rng.choice(['200','201','204'])}).end();\n}}\n",
+    lambda rng: f"{rng.choice(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'])} {rng.randint(1,28)}: {rng.choice(['standup','review','planning'])} at {rng.randint(9,17)}:00\n",
+    lambda rng: f"btn.{rng.choice(['primary','ghost','danger'])} {{ border-radius: {rng.randint(0,24)}px; padding: {rng.randint(4,24)}px {rng.randint(4,32)}px; }}\n",
+    lambda rng: f"Hi, is the {rng.choice(['meeting','demo','call'])} still on for {rng.randint(9,17)}:00 {rng.choice(['today','tomorrow','Friday'])}?\n",
+    lambda rng: f"attempt {rng.randint(1,10)}: {rng.choice(['ok','retry','skipped'])} in {rng.randint(1,999)}ms\n",
+    lambda rng: f"python -m {rng.choice(['pytest','ruff','pip'])} {rng.choice(['tests/','check .','install -r req.txt'])}\n",
+    lambda rng: f"The {rng.choice(['dataset','model','pipeline'])} has {rng.randint(10,99999)} {rng.choice(['rows','params','files'])}.\n",
+    lambda rng: f"git {rng.choice(['status','log','diff'])} --{rng.choice(['oneline','stat','short'])}\n",
+    # near-miss hard negatives: lexically close to inject/jailbreak positives but benign
+    lambda rng: f"Ignore the auto-formatter; tabs are intentional in this file ({rng.choice(['py','go','rs'])}).\n",
+    lambda rng: "Please disregard my previous message and send the updated deck instead.\n",
+    lambda rng: f"Write a story where the hero saves the town from a {rng.choice(['storm','flood','fire'])}.\n",
+    lambda rng: f"Pretend we're in a rush and finish the slides before {rng.randint(12,18)}:00.\n",
+    lambda rng: f"This is a test of the EXAMPLE safety system — all checks passed (run {rng.randint(1,999)}).\n",
+    lambda rng: f"Disregard the old config; the new one lives in {rng.choice(['etc/','conf/','cfg/'])}.\n",
+    lambda rng: "You are now in review mode: check the PR checklist and approve if green.\n",
+    lambda rng: f"### CHANGELOG ###\n- {rng.choice(['fix','feat','docs'])}: {rng.choice(['typos','labels','links'])} ({rng.randint(1,99)})\n",
+]
+
+
+def gen_benign_hard(n: int, seed: int) -> list[dict]:
+    """All-zero risk14 hard negatives: diverse benign text/code (FP-audit fix)."""
+    rng = random.Random(seed + 900)
+    out = []
+    while len(out) < n:
+        text = rng.choice(BENIGN_FAMILIES)(rng)
+        if rng.random() < 0.3:
+            text = text + rng.choice(BENIGN_FAMILIES)(rng)
+        out.append({"input": text, "risk14": [0] * 14, "source": "synth/benign_hard"})
+    return out
+
 
 def _sample_code_text(seed: int, n_each: int):
     """Yield (bytes, kind, label) from synth buckets + real samples."""
@@ -509,6 +565,7 @@ def merkle_root(hashes: list[str]) -> str:
 
 SPLIT_BUILDERS = {
     "riskpp_synth": lambda seed: [x for g, s in zip(RISKPP_GENERATORS.values(), range(8)) for x in g(500, seed + s * 1000)],
+    "benign_hard": lambda seed: gen_benign_hard(1500, seed),
     "semantic_choice": lambda seed: make_choice_decisions(6000, seed),
     "semantic_score": lambda seed: make_score_decisions(2000, seed),
     "semantic_noul": lambda seed: make_noul_decisions(2000, seed),

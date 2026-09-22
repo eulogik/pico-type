@@ -144,8 +144,10 @@ def test_calibrator_loads_defaults():
     from model.pico_type.arth import Calibrator
 
     c = Calibrator(os.path.join(ROOT, "scripts", "temperatures.json"))
-    assert c.temp("choice", 4) == 1.0
-    assert c.temp("noul", 15) == 1.0
+    # Wk3-4 refit on shipped ckpt (arth_final, held-out seeds): 3-5 buckets fitted, others default 1.0
+    assert c.temp("choice", 4) == 1.2969  # choice/3-5 fitted
+    assert c.temp("noul", 15) == 1.0  # noul/6-20 unfitted default
+    assert c.temp("score", 4) == 1.8974  # score/3-5 fitted
 
 
 def test_calibrator_buckets():
@@ -190,15 +192,41 @@ def test_riskpp_generators():
 def test_no_real_secrets():
     import re
 
-    from model.pico_type.arth_data import RISKPP_GENERATORS
+    from model.pico_type.arth_data import RISKPP_GENERATORS, gen_benign_hard
 
     cred = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|\b\d{3}-\d{2}-\d{4}\b|\b4\d{15}\b")
-    for gen in RISKPP_GENERATORS.values():
+    for gen in list(RISKPP_GENERATORS.values()) + [lambda n, s: gen_benign_hard(n, s)]:
         for it in gen(50, 11):
             t = it["input"]
             for m in cred.finditer(t):
                 ctx = t[max(0, m.start() - 30) : m.end() + 30]
                 assert "EXAMPLE" in ctx or re.fullmatch(r"(000|666|9\d\d)-\d{2}-\d{4}", m.group(0)), m.group(0)
+
+
+def test_benign_hard_zeros():
+    from model.pico_type.arth_data import gen_benign_hard
+
+    items = gen_benign_hard(50, 7)
+    assert len(items) == 50
+    assert all(it["risk14"] == [0] * 14 and it["source"] == "synth/benign_hard" for it in items)
+    assert len({it["input"] for it in items}) > 40  # diverse, not 5 templates
+
+
+def test_risk_thresholds_and_flags():
+    from model.pico_type.arth import RISK_PLUS_LABELS, load_risk_thresholds, risk_flags
+
+    thrs = load_risk_thresholds()
+    # fitted: 8 new Risk++ labels + api_key (from aws/github gens). The 5 legacy
+    # v0.2 labels (jwt/ssh_key/password/email/phone) keep default 0.5.
+    assert len(thrs) == 9
+    assert all(0.0 < t < 1.0 for t in thrs.values())
+    assert "jailbreak" in thrs and "prompt_injection" in thrs
+    probs = torch.full((1, 14), 0.999)
+    flags = risk_flags(probs, thrs)
+    assert flags.shape == (1, 14) and bool(flags.all())  # thresholds + 0.5 defaults all < 0.999
+    probs2 = torch.zeros(1, 14)
+    assert not bool(risk_flags(probs2, thrs).any())
+    assert len(RISK_PLUS_LABELS) == 14
 
 
 def test_decision_shapes():
@@ -237,6 +265,7 @@ def test_manifest_and_loaders():
         meta = json.load(f)
     assert meta["frozen"] is True and meta["seed"] == 7
     assert meta["splits"]["riskpp_synth"]["n"] == 4000
+    assert meta["splits"]["benign_hard"]["n"] == 1500
     assert meta["splits"]["heap_code"]["n"] == 8709
     assert meta["splits"]["wiki_text"]["n"] == 5000
     assert ad.load_enron() == [] and ad.load_toxicchat() == [] and ad.load_typed_decisions() == []

@@ -228,6 +228,27 @@ def dist_stats(probs: torch.Tensor) -> torch.Tensor:
     return torch.stack([top1, margin, entropy, k], dim=-1)
 
 
+def load_risk_thresholds(path: str | None = None) -> dict[str, float]:
+    """Per-label Risk++ operating points (scripts/risk_thresholds.json, Youden-fit).
+    Missing labels/keys default to 0.5."""
+    if path is None:
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                            "scripts", "risk_thresholds.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path) as f:
+        return json.load(f)
+
+
+def risk_flags(probs: torch.Tensor, thresholds: dict[str, float] | None = None) -> torch.Tensor:
+    """Boolean risk flags per label using calibrated per-label thresholds."""
+    thrs = thresholds if thresholds is not None else load_risk_thresholds()
+    t = torch.tensor(
+        [thrs.get(lbl, 0.5) for lbl in RISK_PLUS_LABELS], dtype=probs.dtype, device=probs.device
+    )
+    return probs >= t
+
+
 class ArthModel(nn.Module):
     """Frozen v0.2 trunk + new (untrained) V2 heads."""
 

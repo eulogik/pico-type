@@ -100,6 +100,9 @@ class Streams:
     def __init__(self, seed: int = 7, subset: int = 0):
         self.rng = random.Random(seed)
         self.risk = load_jsonl("riskpp_synth", subset)
+        benign = load_jsonl("benign_hard", subset)
+        # mix (FP-audit): benign x1 — x2 diluted prompt_injection recall (0.58)
+        self.risk = self.risk + benign
         self.choice = load_jsonl("semantic_choice", subset)
         self.score = load_jsonl("semantic_score", subset)
         self.noul = load_jsonl("semantic_noul", subset)
