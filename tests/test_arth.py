@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import time
@@ -239,6 +240,37 @@ def test_manifest_and_loaders():
     assert meta["splits"]["heap_code"]["n"] == 8709
     assert meta["splits"]["wiki_text"]["n"] == 5000
     assert ad.load_enron() == [] and ad.load_toxicchat() == [] and ad.load_typed_decisions() == []
+
+
+def test_train_losses_finite():
+    from model.pico_type.arth_train import Streams, encode
+
+    st = Streams(seed=7, subset=10)
+    leg, sem, rsk, rel = st.sample(2, 2, 2, 1)
+    assert len(leg) == 2 and len(sem) == 2 and len(rsk) == 2 and len(rel) == 1
+    ids, mask = encode([b"hello world", b"\x89PNG\r\n"])
+    assert ids.shape[0] == 2 and mask.shape[0] == 2
+    assert int(mask[0].sum()) == 11
+
+
+def test_train_two_steps(tmp_path):
+    from model.pico_type import arth_train as at
+
+    if not os.path.exists(os.path.join(ROOT, "data", "raw", "arth", "riskpp_synth.jsonl")):
+        pytest.skip("corpora not built")
+    args = argparse.Namespace(
+        steps=2, subset=20, freeze_steps=2000, n_legacy=2, n_sem=2, n_risk=2, n_rel=1,
+        lr=3e-4, lr_trunk=3e-5, kd_temp=2.0, w_legacy=1.0, w_sem=1.0, w_rel=0.5,
+        w_risk=0.5, lambda_cal=0.005, out=str(tmp_path), log_every=1,
+        save_every=2, resume=False, seed=7,
+    )
+    out = at.train(args)
+    import math
+
+    assert len(out["history"]) == 2
+    for rec in out["history"]:
+        assert all(abs(v) != float("inf") and not math.isnan(v) for k, v in rec.items() if k != "step")
+    assert os.path.exists(os.path.join(str(tmp_path), "arth_final.pt"))
 
 
 def test_latency_smoke(arth):
