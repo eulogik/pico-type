@@ -1,0 +1,223 @@
+{
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu_count": 10
+  },
+  "params": {
+    "embed": 24576,
+    "conv_total": 517248,
+    "attn_per_layer": [
+      444288,
+      444288
+    ],
+    "pool": 0,
+    "heads_total": 197664,
+    "total_all": 1628064,
+    "trunk_frozen": 1430400,
+    "tier_tiny_total": 1434344,
+    "tier_small_total": 1445480,
+    "tier_base_total": 1475176,
+    "tier_pro_total": 1564264,
+    "ckpt_step": 700,
+    "ckpt_rwa": 0.9523809523809523
+  },
+  "latency_single": {
+    "n": 100,
+    "p50_ms": 33.35354099999677,
+    "p95_ms": 37.387833000138926,
+    "min_ms": 31.145625000135624,
+    "max_ms": 39.39987500052666
+  },
+  "latency_multi": {
+    "n": 100,
+    "p50_ms": 20.958666000296944,
+    "p95_ms": 24.224791000051482,
+    "min_ms": 18.32270800059632,
+    "max_ms": 24.84454099976574
+  },
+  "parity_onnx": {
+    "py_code": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "graphql",
+      "code_lang": "typescript",
+      "text_lang": "pt",
+      "file_mime": "application/x-7z-compressed",
+      "risk_top": "password"
+    },
+    "js_code": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "csv",
+      "code_lang": "octave",
+      "text_lang": "de",
+      "file_mime": "font/ttf",
+      "risk_top": "password"
+    },
+    "en_text": {
+      "coarse": "text",
+      "modality": "textual",
+      "subtype": "toml",
+      "code_lang": "kotlin",
+      "text_lang": "en",
+      "file_mime": "application/pdf",
+      "risk_top": "jwt"
+    },
+    "json": {
+      "coarse": "data",
+      "modality": "textual",
+      "subtype": "dockerfile",
+      "code_lang": "prolog",
+      "text_lang": "ko",
+      "file_mime": "image/webp",
+      "risk_top": "password"
+    },
+    "yaml": {
+      "coarse": "text",
+      "modality": "textual",
+      "subtype": "makefile",
+      "code_lang": "prolog",
+      "text_lang": "en",
+      "file_mime": "application/x-tar",
+      "risk_top": "password"
+    },
+    "png": {
+      "coarse": "image",
+      "modality": "binary_image",
+      "subtype": "csv",
+      "code_lang": "c",
+      "text_lang": "pl",
+      "file_mime": "image/png",
+      "risk_top": "password"
+    },
+    "secret": {
+      "coarse": "secret",
+      "modality": "textual",
+      "subtype": "env",
+      "code_lang": "sql",
+      "text_lang": "uk",
+      "file_mime": "application/x-parquet",
+      "risk_top": "api_key"
+    },
+    "error": {
+      "coarse": "error",
+      "modality": "textual",
+      "subtype": "yaml",
+      "code_lang": "python",
+      "text_lang": "it",
+      "file_mime": "image/gif",
+      "risk_top": "password"
+    },
+    "sql": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "sql",
+      "code_lang": "sql",
+      "text_lang": "ja",
+      "file_mime": "image/webp",
+      "risk_top": "password"
+    },
+    "markdown": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "gitignore",
+      "code_lang": "zig",
+      "text_lang": "en",
+      "file_mime": "application/pdf",
+      "risk_top": "password"
+    }
+  },
+  "parity_torch": {
+    "py_code": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "json",
+      "code_lang": "ruby",
+      "text_lang": "es",
+      "file_mime": "application/x-xz",
+      "risk_top": "phone"
+    },
+    "js_code": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "protobuf",
+      "code_lang": "javascript",
+      "text_lang": "pt",
+      "file_mime": "application/pdf",
+      "risk_top": "ssh_key"
+    },
+    "en_text": {
+      "coarse": "text",
+      "modality": "textual",
+      "subtype": "tex",
+      "code_lang": "tcl",
+      "text_lang": "en",
+      "file_mime": "application/x-tar",
+      "risk_top": "email"
+    },
+    "json": {
+      "coarse": "config",
+      "modality": "textual",
+      "subtype": "json",
+      "code_lang": "perl",
+      "text_lang": "el",
+      "file_mime": "image/jpeg",
+      "risk_top": "phone"
+    },
+    "yaml": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "yaml",
+      "code_lang": "sass",
+      "text_lang": "es",
+      "file_mime": "application/x-tar",
+      "risk_top": "email"
+    },
+    "png": {
+      "coarse": "image",
+      "modality": "binary_image",
+      "subtype": "log",
+      "code_lang": "vb",
+      "text_lang": "sk",
+      "file_mime": "image/webp",
+      "risk_top": "api_key"
+    },
+    "secret": {
+      "coarse": "secret",
+      "modality": "textual",
+      "subtype": "env",
+      "code_lang": "powershell",
+      "text_lang": "ja",
+      "file_mime": "image/gif",
+      "risk_top": "api_key"
+    },
+    "error": {
+      "coarse": "error",
+      "modality": "textual",
+      "subtype": "yaml",
+      "code_lang": "nim",
+      "text_lang": "es",
+      "file_mime": "image/jpeg",
+      "risk_top": "email"
+    },
+    "sql": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "sql",
+      "code_lang": "objectivec",
+      "text_lang": "zh",
+      "file_mime": "application/pdf",
+      "risk_top": "ssh_key"
+    },
+    "markdown": {
+      "coarse": "code",
+      "modality": "textual",
+      "subtype": "yaml",
+      "code_lang": "sass",
+      "text_lang": "es",
+      "file_mime": "application/x-deb",
+      "risk_top": "email"
+    }
+  }
+}

@@ -31,12 +31,18 @@ LABEL_TABLES = {
 }
 
 
-def load_onnx_model(tier: str = "base", model_dir: str = "checkpoints"):
+def load_onnx_model(tier: str = "base", model_dir: str = "checkpoints", single_thread: bool = False):
     import onnxruntime as ort
     path = os.path.join(model_dir, f"picotype_{tier}.onnx")
     if not os.path.exists(path):
         raise FileNotFoundError(f"ONNX model not found: {path}")
-    session = ort.InferenceSession(path)
+    if single_thread:
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = 1
+        opts.inter_op_num_threads = 1
+        session = ort.InferenceSession(path, sess_options=opts)
+    else:
+        session = ort.InferenceSession(path)
     return session
 
 

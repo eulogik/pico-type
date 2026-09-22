@@ -41,7 +41,7 @@ Bytes ≤8k (patch-chunked: 1k windows + coding-rate boundaries + attention-pool
   → Hypercube sparse wiring for 8k context (fixed sparse rotated, 1/32 links, log₂n layers — no training overhead)
 ```
 
-**Total: ~4.5M params (base) → ONNX ≤27MB FP32 / ≤6MB INT8 single file (from v0.2's measured ~6 B/param FP32, ~1 B/param INT8; 18MB raw-weight floor — earlier 12MB/3MB violated physics, fixed 2026-09-22). Param budget, confirm Wk 1–2: trunk 1.5M + semantic scorer ~2M + relational ~0.5M + Risk++/act ~0.5M. Edge artifact is tiny-tier INT8 (~1.5M params → ~2MB). P50 target: ≤8ms base CPU / ≤4ms tiny (INT8+fused; speedup budget below).**
+**Total: ~4.5M params (base) → ONNX ≤27MB FP32 / ≤6MB INT8 single file (from v0.2's measured ~6 B/param FP32, ~1 B/param INT8; 18MB raw-weight floor — earlier 12MB/3MB violated physics, fixed 2026-09-22). Param budget CONFIRMED Wk 1–2 (`scripts/arth_probe.py`): frozen trunk 1,430,400 (embed 24,576 + conv 517,248 + attn 2×444,288 + pool 0) + new BiAttn 444,288 (=+0.4M claim ✓) → new trunk ≈1.87M; + semantic scorer ~2–2.5M + relational 0.2–0.5M + Risk++/act ~0.5M → total ≈4.6–5.4M. Watch: high end lands ~30–34MB FP32, over the ≤27MB target — size gate re-checked once heads are wired. Edge artifact is tiny-tier INT8 (~1.5M params → ~2MB). P50 target: ≤8ms base CPU / ≤4ms tiny (INT8+fused; speedup budget below).**
 
 **Why breakthrough (not incremental):**
 
@@ -59,7 +59,7 @@ Bytes ≤8k (patch-chunked: 1k windows + coding-rate boundaries + attention-pool
 
 ## 2. Training (3h, M4 or T4, reproducible)
 
-* **Init:** v0.2 `best.pt` trunk frozen 2k steps → unfreeze all. Semantic+relational heads from scratch (like Laya decision head).
+* **Init:** recovered v0.2 trunk `checkpoints/arth_trunk_v02.pt` frozen 2k steps → unfreeze all. Semantic+relational heads from scratch (like Laya decision head). NOTE 2026-09-22: `checkpoints/best.pt` is the pre-v2 95.2% checkpoint (max_bytes=2048) and v0.2 torch weights survive nowhere on disk/HF/backup — trunk was recovered by ONNX→torch weight transfer from the single-file v2 exports (fused transposes unfolded, tier slices restored; torch↔ONNX max logit diff 1.3e-5 on padded inputs, `scripts/arth_recover_trunk.py`). No local checkpoint matches v2 ONNX (best 27/70 head-matches).
 * **Data (~25k decisions):** synth templates (pico `data.py` 11 buckets) + real (Heap code, Wiki langs, Enron spam, ToxicChat jailbreak, BigBench-inject, PII synthetic vault, SQLi/XSS payloads — never real secrets) + typed-decisions train subset (400 cases, to prove transfer) + unanswerable pairs (evidence-stripped, Kev pattern) + structural reasoning pairs (code AST diffs, invoice field extractions, logic form transforms). Freeze hashes pre-train. Enron/ToxicChat are public datasets — verify redistribution terms before shipping derived artifacts; never ship PII-adjacent rows.
 * **Loss:** `L = 1.0*L_legacy7 (frozen-target KD, no regression) + 1.0*L_sem (CE/RPS/BCE) + 0.5*L_rel (structural CE) + 0.5*L_risk++ (BCE) + λ*L_calCE (uniform-if-wrong, λ=0.005)`. Phase B RL 30min: Gaussian noise + Brier reward + group baseline.
 * **Calibrate:** temps per (choice/score/noul × 2/3-5/6-20) on held-out. Ship `temperatures.json` + `refit.py`. Report raw+fitted always.
@@ -101,7 +101,7 @@ Rules: per-item logs, CPU model + threads pinned, raw+fitted columns, trunc docu
 
 ## 5. Build (45 days, solo)
 
-* **Wk 1–2:** branch (not fork), freeze trunk, wire semantic markers + relational head + temps + act head. Confirm §1 param budget + CI green (pytest+ruff extended). **Latency smoke test: 1024B dense vs hypercube, 1Q P50 — gate: hypercube ≤ dense and base ≤18ms (no regression with heads stubbed).** Gate: legacy parity + latency probe + 1 semantic demo + 1 relational demo.
+* **Wk 1–2:** branch (not fork), freeze trunk, wire semantic markers + relational head + temps + act head. Confirm §1 param budget + CI green (pytest+ruff extended). **Latency smoke test: 1024B dense vs hypercube, 1Q P50 — measured 2026-09-22 (M4 10-core, `scripts/arth_probe.py`): base P50 33.4ms single-thread / 21.0ms default-threads. README's ~18ms is ~15% under measured — gate: hypercube ≤ dense AND base ≤21ms (no regression vs measured stock v0.2, not the aspirational 18ms), with heads stubbed.** Gate: legacy parity + latency probe + 1 semantic demo + 1 relational demo.
 * **Wk 3–4:** Risk++ data + RLCD-lite + per-bucket temps + hypercube wiring for 8k. Gate: ToxicChat ≥0.72, ECE fitted ≤0.10, 8k context no quality drop.
 * **Wk 5–6:** INT8 (or FP16/per-head fallback per §2)/WASM/Rust, MCP, Space, extensions, docs, V2 paper draft (benchmarks table is paper-shaped), merge to main as v0.3. Gate: all §3 or publish miss.
 
