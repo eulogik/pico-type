@@ -187,6 +187,15 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 
 ## 7. What's done ✅
 
+### ARTH V2 Wk 1–2 kickoff (2026-09-22, branch `arth`)
+- **Trunk freeze**: v0.2 torch weights survive nowhere (best.pt = pre-v2 95.2%; max ONNX-match 27/70) — recovered exact v0.2 trunk from single-file ONNX via `scripts/arth_recover_trunk.py` (fused transposes unfolded, 4 tier slices; torch↔ONNX max logit diff **1.3e-5**). Saved `checkpoints/arth_trunk_v02.pt` (gitignored, regenerable). Frozen trunk reproduces v0.2 ONNX **70/70** on the parity probe set.
+- **Measured baselines** (`scripts/arth_probe.py` → `scripts/arth_baseline.json`, M4 10-core): trunk 1,430,400 params (embed 24,576 + conv 517,248 + attn 2×444,288); new BiAttn 444,288 (matches +0.4M claim); base P50 **33.4ms single-thread / 21.0ms default-threads** (README ~18ms is ~15% under measured — parity gate set to ≤21ms).
+- **New heads wired** (`model/pico_type/arth.py`, all UNTRAINED): `SemanticHead` (~1.02M: byte-offset option markers → 2-layer pre-norm 192d transformer → 1 logit/option, K=2/4/10 verified) + `RelationalHead` (13 deterministic structural byte feats + linear) + `ActHead` + `Calibrator` (per mode/count-bucket temps, default 1.0). Torch e2e (trunk+stubs, 4-way) P50 **11.5ms** ≤ 21ms gate.
+- **Tests**: `tests/test_arth.py` (8 tests: shapes, frozen grads, legacy parity, calibrator buckets, latency smoke) — **17/17 green** with smoke suite; ruff clean.
+- **Demos run** (plumbing only, uniform outputs = untrained): semantic 4-way choice + relational balanced-vs-broken scoring.
+- **Pre-existing inconsistency found (not fixed, out of scope)**: `run_torch` (short seq) vs `run_onnx` (padded-1024) disagree ≤0.1 prob on short inputs — conv has no mask so edge effects differ. Training batches are padded, so KD stays consistent.
+- **Plan doc updated**: init source, confirmed param budget (+size warning: 4.6–5.4M → ~30–34MB FP32 possible over ≤27MB target), latency truth, all in `PICO-TYPE-V2-Breakthrough-Plan.md`.
+
 ### Training, Deployment & Publishing
 - **Training**: 1700 steps completed. eval_loss improved 6.33 (step 0) → 2.72 (step 800) → **1.97 (step 1700, best.pt)**. Subtype/code_lang accuracy dipped (overfitting), text_lang/risk improved.
 - **v0.2 training** (real data): 6700 steps (1700 synthetic + 5000 mixed), best eval_loss **1.95** at step 6500. code_lang **60.3%** (The Heap), text_lang **98.2%** (Wikipedia).
