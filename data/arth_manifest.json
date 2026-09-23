@@ -1,5 +1,6 @@
 {
   "seed": 7,
+  "frozen": true,
   "splits": {
     "riskpp_synth": {
       "n": 4000,
@@ -12,6 +13,18 @@
     "toxicchat_jail": {
       "n": 897,
       "root": "6b5f5fa3c06f13ba1393167c673af04eb40593156bad067db69c60960f061c21"
+    },
+    "ag_news": {
+      "n": 8000,
+      "root": "1b8fc126a4fb13a055e3463c280506912b571de32518c675d58fb18f1d4ef054"
+    },
+    "sst2": {
+      "n": 6000,
+      "root": "a8a113e81ce30165376119dbefae9ada071241bdd7ccb5cd34cac2268163296d"
+    },
+    "enron_spam": {
+      "n": 6000,
+      "root": "339135a92d4c4ac22ff397de7d5fa1fb14cc00e63e05cabdd4128434302b91ac"
     },
     "semantic_choice": {
       "n": 6000,
@@ -45,6 +58,5 @@
       "n": 5000,
       "root": "c4e547bbd680a89f0b55f1b459cd0fc38c213f25bb5bbb8371e95d3b49fb8582"
     }
-  },
-  "frozen": true
+  }
 }

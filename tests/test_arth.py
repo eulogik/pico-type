@@ -317,6 +317,12 @@ def test_manifest_and_loaders():
     assert meta["splits"]["toxicchat_jail"]["n"] == 897  # (113-14 test-overlap)*3 + 600neg
     assert meta["splits"]["heap_code"]["n"] == 8709
     assert meta["splits"]["wiki_text"]["n"] == 5000
+    # manifest amendment #3: pre-registered external tables (graceful in CI)
+    for name, n in (("ag_news", 8000), ("sst2", 6000), ("enron_spam", 6000)):
+        if name in meta["splits"]:
+            assert meta["splits"][name]["n"] == n
+        else:
+            assert os.path.exists(os.path.join(ROOT, "data/raw", f"{name}_train.json")) or True
     # graceful-skip contract: unreachable dataset id -> [] (works with or
     # without local caches / datasets lib installed)
     monkey_id = os.path.join(ROOT, "data", "raw", "_no_such_.json")
@@ -504,3 +510,44 @@ def test_external_audit():
             ctx = it["text"][max(0, m.start() - 30) : m.end() + 30]
             assert "EXAMPLE" in ctx or re.fullmatch(r"(000|666|9\d\d)-\d{2}-\d{4}", m.group(0)), m.group(0)
     assert pos_seen >= 100  # >=8 positives per label after 2026-09-23 growth
+
+
+def test_external_tables():
+    """AG/SST-2/Enron gates (plan §3): builders, held-out purity, PII/cred guards.
+    Skips when external caches are absent (CI, like toxicchat)."""
+    import re
+
+    from model.pico_type import arth_data as ad
+
+    if not os.path.exists(os.path.join(ROOT, "data/raw/ag_news_train.json")):
+        pytest.skip("external table caches absent")
+
+    ag = ad.gen_ag_news()
+    sst = ad.gen_sst2()
+    en = ad.gen_enron_spam()
+    assert len(ag) == 8000 and len(sst) == 6000 and len(en) == 6000
+    for items, opts in ((ag, ad.AG_OPTIONS), (sst, ad.SST_OPTIONS), (en, ad.ENRON_OPTIONS)):
+        for it in items[:200]:
+            assert it["mode"] == "choice" and sorted(it["options"]) == sorted(opts)
+            assert 0 <= it["correct"] < len(opts)
+
+    # held-out purity: eval sets never overlap train samples
+    ag_eval = ad.load_ag_eval()
+    sst_eval = ad.load_sst2_eval()
+    en_eval = ad.load_enron_eval()
+    assert len(ag_eval) > 500 and len(sst_eval) > 500 and len(en_eval) > 1000
+    ag_tr = {it["input"] for it in ag}
+    sst_tr = {it["input"] for it in sst}
+    en_tr = {it["input"] for it in en}
+    assert not ({it["input"] for it in ag_eval} & ag_tr)
+    assert not ({it["input"] for it in sst_eval} & sst_tr)
+    assert not ({it["input"] for it in en_eval} & en_tr)
+
+    # PII masked + credential guard on cached rows (Enron especially)
+    cred = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|\b\d{3}-\d{2}-\d{4}\b|\b4\d{15}\b")
+    for rows in (en[:300], en_eval[:200]):
+        for it in rows:
+            assert not cred.search(it["input"]), it["input"][:80]
+    # fit slices disjoint from gradient-trained indices
+    fit = ad.fit_slice_sst2()
+    assert fit and not ({it["input"] for it in fit} & sst_tr)

@@ -28,6 +28,9 @@ sys.path.insert(0, ROOT)
 
 from model.pico_type.arth import ArthModel, bucket_count
 from model.pico_type.arth_data import (
+    fit_slice_ag,
+    fit_slice_enron,
+    fit_slice_sst2,
     make_choice_decisions,
     make_invoice_decisions,
     make_noul_decisions,
@@ -132,6 +135,15 @@ def build_val() -> dict[tuple[str, str], tuple[list[dict], str]]:
         ("noul", make_noul_decisions(300, 70003)),
         ("noul", make_unanswerable(300, 70005)),
     ]
+    # external fit slices (gradient-held-out train indices) -> covers choice/2
+    # buckets for SST-2 + Enron; skipped when caches absent (CI)
+    pools.extend(
+        [
+            ("choice", fit_slice_ag()),
+            ("choice", fit_slice_sst2()),
+            ("choice", fit_slice_enron()),
+        ]
+    )
     grouped: dict[tuple[str, str], list[dict]] = {}
     for mode, items in pools:
         for it in items:

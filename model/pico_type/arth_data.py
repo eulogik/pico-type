@@ -550,18 +550,249 @@ def load_wiki_text(path: str = os.path.join(_ROOT, "model/pico_type/data/real/te
 
 
 def load_enron(path: str = os.path.join(_ROOT, "data/raw/enron.json")) -> list[dict]:
-    """Spam/ham. Local cache first; optional `datasets` download; else skip."""
+    """Deprecated shim -> load_enron_spam('train'). Kept for import compat."""
+    return load_enron_spam("train")
+
+
+_PII_RE = None
+
+
+def _mask_pii(text: str) -> str:
+    """Mask PII before any external table (train AND eval, same transform):
+    emails/SSN/PAN/phones -> placeholders. Plan: 'never ship PII-adjacent rows'
+    (caches are gitignored; only masked text is ever used)."""
+    global _PII_RE
+    import re
+
+    if _PII_RE is None:
+        _PII_RE = [
+            (re.compile(r"[\w.+-]+@[\w-]+\.[\w-]+"), "[EMAIL]"),
+            (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN]"),
+            (re.compile(r"\b(?:4\d{15}|5[1-5]\d{14}|3[47]\d{13})\b"), "[CARD]"),
+            (re.compile(r"\+?\d{1,3}[-\s.]\d{2,4}[-\s.]\d{3,4}\b"), "[PHONE]"),
+            (re.compile(r"\(\d{3}\)\s*\d{3}-\d{4}"), "[PHONE]"),
+        ]
+    for rx, rep in _PII_RE:
+        text = rx.sub(rep, text)
+    return text
+
+
+def _external_row(text: str, label: int, source: str) -> dict | None:
+    """Mask PII, drop residual credential-pattern rows (same guard as tests)."""
+    global _CRED_RE
+    import re
+
+    if _CRED_RE is None:
+        _CRED_RE = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|\b\d{3}-\d{2}-\d{4}\b|\b4\d{15}\b")
+    masked = _mask_pii(str(text))[:2000]
+    if not masked or _CRED_RE.search(masked):
+        return None
+    return {"input": masked, "label": int(label), "source": source}
+
+
+def _load_external(name: str, split: str, build_fn, path: str = "") -> list[dict]:
+    """Cache-first external loader (toxicchat pattern): data/raw/{name}_{split}.json."""
+    if not path:
+        path = os.path.join(_ROOT, f"data/raw/{name}_{split}.json")
     if os.path.exists(path):
         with open(path) as f:
             return json.load(f)
     try:
+        rows = build_fn()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(rows, f)
+        return rows
+    except Exception as e:
+        print(f"{name}({split}) unavailable ({e}); skipping")
+        return []
+
+
+def load_ag_news(split: str = "train", path: str = "") -> list[dict]:
+    """AG News (fancyzhx/ag_news) labels 0=World 1=Sports 2=Business 3=Sci/Tech."""
+
+    def build():
         from datasets import load_dataset
 
-        ds = load_dataset("SetFit/enron_spam", split="train")
-        return [{"input": r["text"][:2000], "spam": int(r["label"]), "source": "enron"} for r in ds]
-    except Exception as e:
-        print(f"enron unavailable ({e}); skipping")
+        ds = load_dataset("fancyzhx/ag_news", split=split)
+        out = []
+        for r in ds:
+            row = _external_row(r["text"], r["label"], "ag_news")
+            if row:
+                out.append(row)
+        return out
+
+    return _load_external("ag_news", split, build, path)
+
+
+def load_sst2(split: str = "train", path: str = "") -> list[dict]:
+    """SST-2 (stanfordnlp/sst2) label 1=positive 0=negative; gate uses validation."""
+
+    def build():
+        from datasets import load_dataset
+
+        ds = load_dataset("stanfordnlp/sst2", split=split)
+        out = []
+        for r in ds:
+            row = _external_row(r["sentence"], r["label"], "sst2")
+            if row:
+                out.append(row)
+        return out
+
+    return _load_external("sst2", split, build, path)
+
+
+def load_enron_spam(split: str = "train", path: str = "") -> list[dict]:
+    """SetFit/enron_spam label 1=spam 0=ham (Enron corpus, public; derived rows
+    never shipped — data/raw caches gitignored; only masked text used)."""
+
+    def build():
+        from datasets import load_dataset
+
+        ds = load_dataset("SetFit/enron_spam", split=split)
+        out = []
+        for r in ds:
+            row = _external_row(r["text"], r["label"], "enron_spam")
+            if row:
+                out.append(row)
+        return out
+
+    return _load_external("enron_spam", split, build, path)
+
+
+AG_OPTIONS = ["World", "Sports", "Business", "Sci/Tech"]
+SST_OPTIONS = ["positive", "negative"]
+ENRON_OPTIONS = ["spam", "ham"]
+N_AG_TRAIN, N_SST_TRAIN, N_ENRON_TRAIN = 8000, 6000, 6000
+N_FIT_SLICE = 400  # per table, held out from gradient updates for temps fit
+
+
+def _choice_item(text: str, name: str, options: list[str], source: str, rng: random.Random) -> dict:
+    opts = list(options)
+    rng.shuffle(opts)
+    return {
+        "input": text,
+        "options": opts,
+        "correct": opts.index(name),
+        "mode": "choice",
+        "source": source,
+    }
+
+
+def _train_indices(n_total: int, n: int, seed: int) -> list[int]:
+    rng = random.Random(seed + 1500)
+    idx = list(range(n_total))
+    rng.shuffle(idx)
+    return idx[:n]
+
+
+def gen_ag_news(n: int = N_AG_TRAIN, seed: int = 7) -> list[dict]:
+    rows = load_ag_news("train")
+    if not rows:
         return []
+    rng = random.Random(seed + 1600)
+    out = []
+    for i in _train_indices(len(rows), min(n, len(rows)), seed):
+        r = rows[i]
+        out.append(_choice_item(r["input"], AG_OPTIONS[r["label"]], AG_OPTIONS, "ext/ag_news", rng))
+    return out
+
+
+def gen_sst2(n: int = N_SST_TRAIN, seed: int = 7) -> list[dict]:
+    rows = load_sst2("train")
+    if not rows:
+        return []
+    rng = random.Random(seed + 1601)
+    out = []
+    for i in _train_indices(len(rows), min(n, len(rows)), seed):
+        r = rows[i]
+        name = SST_OPTIONS[0] if r["label"] == 1 else SST_OPTIONS[1]
+        out.append(_choice_item(r["input"], name, SST_OPTIONS, "ext/sst2", rng))
+    return out
+
+
+def gen_enron_spam(n: int = N_ENRON_TRAIN, seed: int = 7) -> list[dict]:
+    rows = load_enron_spam("train")
+    if not rows:
+        return []
+    rng = random.Random(seed + 1602)
+    out = []
+    for i in _train_indices(len(rows), min(n, len(rows)), seed):
+        r = rows[i]
+        name = ENRON_OPTIONS[0] if r["label"] == 1 else ENRON_OPTIONS[1]
+        out.append(_choice_item(r["input"], name, ENRON_OPTIONS, "ext/enron_spam", rng))
+    return out
+
+
+def _fit_slice(load, n_total: int, n_train: int, seed: int, k: int, name: str, options: list[str], name_fn):
+    """k train-split items EXCLUDED from gen_* (gradient-held-out) for temps fit."""
+    rows = load("train")
+    if not rows:
+        return []
+    trained = set(_train_indices(n_total, n_train, seed))
+    rng = random.Random(seed + 9900)
+    cand = [i for i in range(len(rows)) if i not in trained]
+    rng.shuffle(cand)
+    out = []
+    for i in cand[:k]:
+        r = rows[i]
+        out.append(_choice_item(r["input"], name_fn(r["label"]), options, name, rng))
+    return out
+
+
+def fit_slice_ag(k: int = N_FIT_SLICE, seed: int = 7) -> list[dict]:
+    rows_n = len(load_ag_news("train"))
+    if not rows_n:
+        return []
+    return _fit_slice(load_ag_news, rows_n, N_AG_TRAIN, seed, k, "fit/ag_news", AG_OPTIONS,
+                      lambda lab: AG_OPTIONS[lab])
+
+
+def fit_slice_sst2(k: int = N_FIT_SLICE, seed: int = 7) -> list[dict]:
+    rows_n = len(load_sst2("train"))
+    if not rows_n:
+        return []
+    return _fit_slice(load_sst2, rows_n, N_SST_TRAIN, seed, k, "fit/sst2", SST_OPTIONS,
+                      lambda lab: SST_OPTIONS[0] if lab == 1 else SST_OPTIONS[1])
+
+
+def fit_slice_enron(k: int = N_FIT_SLICE, seed: int = 7) -> list[dict]:
+    rows_n = len(load_enron_spam("train"))
+    if not rows_n:
+        return []
+    return _fit_slice(load_enron_spam, rows_n, N_ENRON_TRAIN, seed, k, "fit/enron_spam",
+                      ENRON_OPTIONS, lambda lab: ENRON_OPTIONS[0] if lab == 1 else ENRON_OPTIONS[1])
+
+
+def load_ag_eval(n: int = 2000, seed: int = 77) -> list[dict]:
+    """HELD-OUT gate: ag_news test, deduped against train sample, never trained."""
+    rows = load_ag_news("test")
+    trained = {it["input"] for it in gen_ag_news()}
+    cand = [r for r in rows if r["input"] not in trained]
+    rng = random.Random(seed + 1700)
+    rng.shuffle(cand)
+    return [_choice_item(r["input"], AG_OPTIONS[r["label"]], AG_OPTIONS, "eval/ag_news", rng)
+            for r in cand[:n]]
+
+
+def load_sst2_eval(seed: int = 77) -> list[dict]:
+    rows = load_sst2("validation")
+    trained = {it["input"] for it in gen_sst2()}
+    cand = [r for r in rows if r["input"] not in trained]
+    rng = random.Random(seed + 1701)
+    rng.shuffle(cand)
+    return [_choice_item(r["input"], SST_OPTIONS[0] if r["label"] == 1 else SST_OPTIONS[1],
+                         SST_OPTIONS, "eval/sst2", rng) for r in cand]
+
+
+def load_enron_eval(seed: int = 77) -> list[dict]:
+    rows = load_enron_spam("test")
+    trained = {it["input"] for it in gen_enron_spam()}
+    cand = [r for r in rows if r["input"] not in trained]
+    rng = random.Random(seed + 1702)
+    rng.shuffle(cand)
+    return [_choice_item(r["input"], ENRON_OPTIONS[0] if r["label"] == 1 else ENRON_OPTIONS[1],
+                         ENRON_OPTIONS, "eval/enron_spam", rng) for r in cand]
 
 
 def load_toxicchat(split: str = "test", path: str = "") -> list[dict]:
@@ -627,6 +858,9 @@ SPLIT_BUILDERS = {
     "riskpp_synth": lambda seed: [x for g, s in zip(RISKPP_GENERATORS.values(), range(8)) for x in g(500, seed + s * 1000)],
     "benign_hard": lambda seed: gen_benign_hard(1500, seed),
     "toxicchat_jail": lambda seed: gen_toxicchat_jail(seed),
+    "ag_news": lambda seed: gen_ag_news(seed=seed),
+    "sst2": lambda seed: gen_sst2(seed=seed),
+    "enron_spam": lambda seed: gen_enron_spam(seed=seed),
     "semantic_choice": lambda seed: make_choice_decisions(6000, seed),
     "semantic_score": lambda seed: make_score_decisions(2000, seed),
     "semantic_noul": lambda seed: make_noul_decisions(2000, seed),
@@ -677,6 +911,11 @@ def verify_manifest(path: str = MANIFEST_PATH) -> bool:
             os.path.join(_ROOT, "data/raw/toxicchat_train.json")
         ):
             print(f"SKIP {name} (toxicchat_train.json absent)")
+            continue
+        if name in ("ag_news", "sst2", "enron_spam") and not os.path.exists(
+            os.path.join(_ROOT, f"data/raw/{name}_train.json")
+        ):
+            print(f"SKIP {name} ({name}_train.json absent)")
             continue
         items = fn(seed)
         root = merkle_root([item_hash(it) for it in items])

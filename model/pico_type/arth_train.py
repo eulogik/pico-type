@@ -111,13 +111,20 @@ class Streams:
         self.structural = load_jsonl("structural", subset)
         self.invoice = load_jsonl("invoice", subset)
         self.unans = load_jsonl("unanswerable", subset)
+        # pre-registered external tables (AG/SST-2/Enron gates, plan §3)
+        self.ext = (
+            load_jsonl("ag_news", subset)
+            + load_jsonl("sst2", subset)
+            + load_jsonl("enron_spam", subset)
+        )
         heap = load_heap_code()
         wiki = load_wiki_text()
         if subset:
             heap = heap[:subset]
             wiki = wiki[:subset]
         self.legacy = [b for b, _ in heap] + [b for b, _ in wiki]
-        self.sem_pool = self.choice + self.score + self.noul + self.invoice + self.unans
+        # choice x2: protect in-domain share now that ext tables join the pool
+        self.sem_pool = self.choice * 2 + self.score + self.noul + self.invoice + self.unans + self.ext
 
     def sample(self, n_legacy: int, n_sem: int, n_risk: int, n_rel: int):
         leg = self.rng.sample(self.legacy, min(n_legacy, len(self.legacy)))
