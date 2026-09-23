@@ -144,11 +144,11 @@ def test_calibrator_loads_defaults():
     from model.pico_type.arth import Calibrator
 
     c = Calibrator(os.path.join(ROOT, "scripts", "temperatures.json"))
-    # Wk3-4 refit on shipped ckpt (ft2 arth_final, held-out seeds): 3-5 buckets fitted, others default 1.0
-    assert c.temp("choice", 4) == 1.2605  # choice/3-5 fitted
-    assert c.temp("noul", 4) == 0.4534  # noul/3-5 fitted
+    # Wk3-4 refit on shipped ckpt (ft3 = RLCD heads, held-out seeds): 3-5 buckets fitted, others default 1.0
+    assert c.temp("choice", 4) == 0.7672  # choice/3-5 fitted
+    assert c.temp("noul", 4) == 0.5241  # noul/3-5 fitted
     assert c.temp("noul", 15) == 1.0  # noul/6-20 unfitted default
-    assert c.temp("score", 4) == 2.2513  # score/3-5 fitted
+    assert c.temp("score", 4) == 2.6671  # score/3-5 fitted
 
 
 def test_calibrator_buckets():
@@ -255,6 +255,26 @@ def test_risk_thresholds_and_flags():
     probs2 = torch.zeros(1, 14)
     assert not bool(risk_flags(probs2, thrs).any())
     assert len(RISK_PLUS_LABELS) == 14
+
+
+def test_rlcd_reward(arth):
+    """RLCD-lite reward: finite float, better on correct-confident than wrong."""
+    import math
+
+    from scripts.arth_rlcd import reward
+
+    items_sem = [
+        {"input": "q: 2+2?\nA) 4\nB) 5", "options": ["4", "5"], "correct": 0},
+        {"input": "q: color of sky?\nA) blue\nB) green", "options": ["blue", "green"], "correct": 0},
+    ]
+    items_risk = [
+        {"input": "aws_access_key_id = AKIAIOSFODNN7EXAMPLE", "risk14": [1] + [0] * 13},
+        {"input": "plain benign text", "risk14": [0] * 14},
+    ]
+    r = reward(arth, items_sem, items_risk, [0, 1], [0, 1])
+    assert isinstance(r, float) and math.isfinite(r)
+    # trunk untouched by reward evaluation
+    assert all(not p.requires_grad for p in arth.trunk.parameters())
 
 
 def test_decision_shapes():

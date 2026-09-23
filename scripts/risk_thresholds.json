@@ -1,11 +1,11 @@
 {
-  "prompt_injection": 0.3466,
-  "jailbreak": 0.5086,
-  "pii_ssn": 0.5764,
-  "pii_card": 0.9912,
-  "secrets_aws": 0.0157,
-  "secrets_github": 0.9247,
-  "sql_injection": 0.9543,
-  "xss_payload": 0.9205,
-  "api_key": 0.0233
+  "prompt_injection": 0.4727,
+  "jailbreak": 0.4135,
+  "pii_ssn": 0.6697,
+  "pii_card": 0.999,
+  "secrets_aws": 0.0281,
+  "secrets_github": 0.0111,
+  "sql_injection": 0.9301,
+  "xss_payload": 0.9296,
+  "api_key": 0.081
 }

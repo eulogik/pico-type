@@ -122,7 +122,7 @@ FLOOR_EPS = {"api_key": 0.005, "secrets_aws": 0.005, "secrets_github": 0.005}
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", default="checkpoints_arth_ft/arth_final.pt")
+    ap.add_argument("--ckpt", default="checkpoints_arth_ft3/arth_final.pt")
     args = ap.parse_args()
     ckpt = args.ckpt if os.path.isabs(args.ckpt) else os.path.join(ROOT, args.ckpt)
     m = ArthModel(os.path.join(ROOT, "checkpoints", "arth_trunk_v02.pt"))

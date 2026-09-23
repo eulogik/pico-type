@@ -58,7 +58,7 @@ def auroc(pos: np.ndarray, neg: np.ndarray) -> float:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", default="checkpoints_arth_ft2/arth_final.pt")
+    ap.add_argument("--ckpt", default="checkpoints_arth_ft3/arth_final.pt")
     args = ap.parse_args()
     ckpt = args.ckpt if os.path.isabs(args.ckpt) else os.path.join(ROOT, args.ckpt)
 

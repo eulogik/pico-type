@@ -335,7 +335,7 @@ def verify(m: ArthModel, onnx_path: str) -> bool:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", default="checkpoints_arth_ft2/arth_final.pt")
+    ap.add_argument("--ckpt", default="checkpoints_arth_ft3/arth_final.pt")
     ap.add_argument("--out", default="checkpoints/arth_full_base.onnx")
     ap.add_argument("--no-verify", action="store_true")
     args = ap.parse_args()

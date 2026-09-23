@@ -143,7 +143,7 @@ def build_val() -> dict[tuple[str, str], tuple[list[dict], str]]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", default="checkpoints_arth/arth_final.pt")
+    ap.add_argument("--ckpt", default="checkpoints_arth_ft3/arth_final.pt")
     ap.add_argument("--out", default=os.path.join(ROOT, "scripts", "temperatures.json"))
     args = ap.parse_args()
 
