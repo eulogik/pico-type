@@ -485,7 +485,7 @@ def test_external_audit():
     with open(path) as f:
         audit = json.load(f)
     items = audit["items"]
-    assert len(items) >= 60
+    assert len(items) >= 200
     assert "hand" in audit["labeled_by"]
     assert "NEVER used in training" in audit["protocol"]
 
@@ -503,4 +503,4 @@ def test_external_audit():
         for m in cred.finditer(it["text"]):
             ctx = it["text"][max(0, m.start() - 30) : m.end() + 30]
             assert "EXAMPLE" in ctx or re.fullmatch(r"(000|666|9\d\d)-\d{2}-\d{4}", m.group(0)), m.group(0)
-    assert pos_seen >= 20  # positives exist across labels
+    assert pos_seen >= 100  # >=8 positives per label after 2026-09-23 growth
