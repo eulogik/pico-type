@@ -12,39 +12,44 @@ from .arch import TIERS, PicoType, PicoTypeConfig
 from .labels import ALL_HEADS, HEAD_NUM_CLASSES
 
 
+class AttnBlockONNX(nn.Module):
+    """Manual attention block for export (opset 18 / IR 8): SDPA does not
+    lower cleanly to the ONNX-runtime-web-supported opset; mask math matches
+    AttnBlock (scores + where(mask, 0, -1e4), softmax, values)."""
+
+    def __init__(self, src):
+        super().__init__()
+        self.num_heads = src.num_heads
+        self.head_dim = src.head_dim
+        self.qkv = src.qkv
+        self.out_proj = src.out_proj
+        self.norm1 = src.norm1
+        self.norm2 = src.norm2
+        self.mlp = src.mlp
+        self.rope = src.rope
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        B, L, D = x.shape
+        h = self.norm1(x)
+        qkv = self.qkv(h).reshape(B, L, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        q, k = self.rope(q, k)
+        scale = self.head_dim ** -0.5
+        scores = torch.matmul(q, k.transpose(-2, -1)) * scale
+        mask_float = mask[:, None, None, :].to(dtype=x.dtype)
+        masked_value = torch.full_like(mask_float, -1e4)
+        mask_float = torch.where(mask_float.to(torch.bool), torch.zeros_like(mask_float), masked_value)
+        scores = scores + mask_float
+        attn = torch.softmax(scores, dim=-1)
+        out = torch.matmul(attn, v)
+        out = out.transpose(1, 2).reshape(B, L, D)
+        x = x + self.out_proj(out)
+        x = x + self.mlp(self.norm2(x))
+        return x
+
+
 def _tier_wrapper(model: PicoType, tier: str) -> nn.Module:
     """Build a tier-specific wrapper with ONNX-compatible manual attention."""
-
-    class AttnBlockONNX(nn.Module):
-        def __init__(self, src):
-            super().__init__()
-            self.num_heads = src.num_heads
-            self.head_dim = src.head_dim
-            self.qkv = src.qkv
-            self.out_proj = src.out_proj
-            self.norm1 = src.norm1
-            self.norm2 = src.norm2
-            self.mlp = src.mlp
-            self.rope = src.rope
-
-        def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-            B, L, D = x.shape
-            h = self.norm1(x)
-            qkv = self.qkv(h).reshape(B, L, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
-            q, k, v = qkv[0], qkv[1], qkv[2]
-            q, k = self.rope(q, k)
-            scale = self.head_dim ** -0.5
-            scores = torch.matmul(q, k.transpose(-2, -1)) * scale
-            mask_float = mask[:, None, None, :].to(dtype=x.dtype)
-            masked_value = torch.full_like(mask_float, -1e4)
-            mask_float = torch.where(mask_float.to(torch.bool), torch.zeros_like(mask_float), masked_value)
-            scores = scores + mask_float
-            attn = torch.softmax(scores, dim=-1)
-            out = torch.matmul(attn, v)
-            out = out.transpose(1, 2).reshape(B, L, D)
-            x = x + self.out_proj(out)
-            x = x + self.mlp(self.norm2(x))
-            return x
 
     class PicoTypeTier(nn.Module):
         def __init__(self, src: PicoType, tier: str):

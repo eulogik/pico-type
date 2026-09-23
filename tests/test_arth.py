@@ -416,3 +416,39 @@ def test_latency_smoke(arth):
         arth.semantic(p, arth.option_embeds(joined, spans).unsqueeze(0))
     dt = (time.perf_counter() - t0) / 10 * 1000
     assert dt < 200, f"torch e2e too slow: {dt:.1f}ms"
+
+
+def test_onnx_export_smoke(arth, tmp_path):
+    """Export ARTH to single-file ONNX and run it under onnxruntime.
+    Guards the two export bugs already hit: dynamo exporter dropped weights
+    into a .data sidecar (0.41MB main file) and mis-decomposed MHA."""
+    onnx = pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    from scripts.arth_export_onnx import N_STRUCT, OUT_NAMES, export
+
+    path = str(tmp_path / "arth.onnx")
+    export(arth, path, max_len=128)
+    assert not os.path.exists(path + ".data"), "weights must be inlined (single file)"
+    assert os.path.getsize(path) > 5_000_000, "weights missing from export"
+
+    import onnxruntime as ort
+
+    sess = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+    import numpy as np
+
+    out = sess.run(
+        OUT_NAMES,
+        {
+            "input_ids": np.zeros((1, 128), dtype=np.int64),
+            "attention_mask": np.ones((1, 128), dtype=bool),
+            "opt_embs": np.zeros((1, 4, 96), dtype=np.float32),
+            "struct_feats": np.zeros((1, N_STRUCT), dtype=np.float32),
+            "act_stats": np.zeros((1, 4), dtype=np.float32),
+        },
+    )
+    assert len(out) == len(OUT_NAMES)
+    assert out[0].shape == (1, len(COARSE_LABELS))
+    assert out[7].shape == (1, 4)  # semantic_logits
+    assert out[9].shape == (1, 14)  # riskpp_logits
+    model = onnx.load(path, load_external_data=False)
+    assert model.ir_version == 8
