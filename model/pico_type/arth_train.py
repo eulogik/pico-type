@@ -103,6 +103,8 @@ class Streams:
         benign = load_jsonl("benign_hard", subset)
         # mix (FP-audit): benign x1 — x2 diluted prompt_injection recall (0.58)
         self.risk = self.risk + benign
+        # real ToxicChat train-split jailbreak signal (gate fix; test split held out)
+        self.risk = self.risk + load_jsonl("toxicchat_jail", subset)
         self.choice = load_jsonl("semantic_choice", subset)
         self.score = load_jsonl("semantic_score", subset)
         self.noul = load_jsonl("semantic_noul", subset)

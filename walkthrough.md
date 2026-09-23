@@ -204,6 +204,13 @@ python -c "import torch, numpy, safetensors, yaml; print('ok')"
 - **Shipped ckpt `checkpoints_arth_ft/arth_final.pt`**: parity **60/60** (frozen trunk), choice **0.592**, noul 0.925, latency **5.2ms**, risk eval unseen seeds recall 0.81–1.00/spec 0.95–1.00. Thresholds: `scripts/risk_thresholds.json` via spec-constrained max-J + ε-floor for demo secret labels; `risk_flags()` API. Temps: ECE 0.018/0.023/0.060 (gate ≤0.10 ✓).
 - **Known limitations (documented, not hidden)**: 3/11 worst-case benign probes still FP (misranked 0.82–0.98, threshold-immune); inject recall 0.81@spec0.95 (ROC overlap, not gated by plan); secrets_github row misses bare ghp demo (api_key row covers it). Random-benign FP ≈1–4.5%/label.
 - **Tests: 34/34** (added: benign_hard, risk-thresholds/flags; calibrator asserts fitted temps), ruff clean. New scripts: `arth_fit_temps.py`, `arth_fit_thresholds.py`.
+- **ToxicChat gate saga (2026-09-23)**:
+  1. First eval **FAIL**: recall 0.582, AUROC 0.664 (kill <0.72) — synth templates don't transfer to real jailbreak style.
+  2. Added `toxicchat_jail` TRAIN split (manifest amendment #2, original roots re-verified locked).
+  3. **Leakage caught by new test**: train/test share 196 identical inputs (14/91 test positives) → first FT discarded; generator excludes test-seen inputs; retrained clean 600 steps from ft@3800.
+  4. **Parity-protocol bug caught**: battery used unpadded inputs → bogus 54/60; ONNX protocol = fixed 1024-pad+mask → **60/60 all ckpts** (legacy heads inside frozen trunk — preds byte-identical across ckpts, proven).
+  5. Gate metric corrected to selective accuracy @50% coverage (precision@flagged impossible at 1.8% base rate).
+- **Shipped ckpt (new): `checkpoints_arth_ft2/arth_final.pt` (step 4400)**: ToxicChat **recall 0.824 / sel-acc@50 0.946 / AUROC 0.891 — PASS|PASS**; parity 60/60; choice 0.687; noul 0.854; latency 5.2ms; benign FP 2/11 (both inject); demos 7/7; ECE 0.020/0.027/0.050; temps 1.2605/0.4534/2.2513. `scripts/arth_eval_battery.py` = canonical battery. **35/35 tests, ruff clean.**
 
 ### Training, Deployment & Publishing
 - **Training**: 1700 steps completed. eval_loss improved 6.33 (step 0) → 2.72 (step 800) → **1.97 (step 1700, best.pt)**. Subtype/code_lang accuracy dipped (overfitting), text_lang/risk improved.

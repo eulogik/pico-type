@@ -144,10 +144,11 @@ def test_calibrator_loads_defaults():
     from model.pico_type.arth import Calibrator
 
     c = Calibrator(os.path.join(ROOT, "scripts", "temperatures.json"))
-    # Wk3-4 refit on shipped ckpt (arth_final, held-out seeds): 3-5 buckets fitted, others default 1.0
-    assert c.temp("choice", 4) == 1.2969  # choice/3-5 fitted
+    # Wk3-4 refit on shipped ckpt (ft2 arth_final, held-out seeds): 3-5 buckets fitted, others default 1.0
+    assert c.temp("choice", 4) == 1.2605  # choice/3-5 fitted
+    assert c.temp("noul", 4) == 0.4534  # noul/3-5 fitted
     assert c.temp("noul", 15) == 1.0  # noul/6-20 unfitted default
-    assert c.temp("score", 4) == 1.8974  # score/3-5 fitted
+    assert c.temp("score", 4) == 2.2513  # score/3-5 fitted
 
 
 def test_calibrator_buckets():
@@ -212,6 +213,33 @@ def test_benign_hard_zeros():
     assert len({it["input"] for it in items}) > 40  # diverse, not 5 templates
 
 
+def test_toxicchat_jail_split():
+    """Train-split structure + credential guard. Skips structure when cache absent
+    (CI); skip-contract for missing data is covered in test_manifest_and_loaders."""
+    import re
+
+    from model.pico_type.arth_data import _ROOT, gen_toxicchat_jail, load_toxicchat
+
+    cache = os.path.join(_ROOT, "data", "raw", "toxicchat_train.json")
+    if not os.path.exists(cache):
+        assert gen_toxicchat_jail(7) == []
+        return
+    items = gen_toxicchat_jail(7)
+    pos = [it for it in items if any(it["risk14"])]
+    assert len(pos) == 297  # (113 train positives - 14 test-overlap) x3
+    assert all(it["risk14"] == [0] * 14 or it["risk14"][7] == 1 for it in items)
+    assert all(len(it["risk14"]) == 14 for it in items)
+    cred = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|\b\d{3}-\d{2}-\d{4}\b|\b4\d{15}\b")
+    for it in items:
+        assert not cred.search(it["input"]), it["input"][:80]
+    # held-out purity: no test-split inputs may appear in training items
+    test_rows = load_toxicchat("test")
+    if test_rows:
+        test_set = {r["input"] for r in test_rows}
+        train_set = {it["input"] for it in items}
+        assert not (train_set & test_set), "test-split leakage into training"
+
+
 def test_risk_thresholds_and_flags():
     from model.pico_type.arth import RISK_PLUS_LABELS, load_risk_thresholds, risk_flags
 
@@ -266,9 +294,22 @@ def test_manifest_and_loaders():
     assert meta["frozen"] is True and meta["seed"] == 7
     assert meta["splits"]["riskpp_synth"]["n"] == 4000
     assert meta["splits"]["benign_hard"]["n"] == 1500
+    assert meta["splits"]["toxicchat_jail"]["n"] == 897  # (113-14 test-overlap)*3 + 600neg
     assert meta["splits"]["heap_code"]["n"] == 8709
     assert meta["splits"]["wiki_text"]["n"] == 5000
-    assert ad.load_enron() == [] and ad.load_toxicchat() == [] and ad.load_typed_decisions() == []
+    # graceful-skip contract: unreachable dataset id -> [] (works with or
+    # without local caches / datasets lib installed)
+    monkey_id = os.path.join(ROOT, "data", "raw", "_no_such_.json")
+    prev = os.environ.get("TOXICCHAT_DATASET")
+    os.environ["TOXICCHAT_DATASET"] = "/nonexistent/dataset-id-for-test"
+    try:
+        assert ad.load_toxicchat("train", path=monkey_id) == []
+    finally:
+        if prev is None:
+            os.environ.pop("TOXICCHAT_DATASET", None)
+        else:
+            os.environ["TOXICCHAT_DATASET"] = prev
+    assert ad.load_typed_decisions() == []
 
 
 def test_pooled_grad_flow(arth):

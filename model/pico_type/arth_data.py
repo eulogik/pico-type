@@ -309,6 +309,48 @@ def gen_benign_hard(n: int, seed: int) -> list[dict]:
     return out
 
 
+_CRED_RE = None
+
+
+def gen_toxicchat_jail(seed: int, n_neg: int = 600, pos_oversample: int = 3) -> list[dict]:
+    """Real ToxicChat TRAIN-split jailbreak signal (Wk3-4 gate fix 2026-09-22:
+    synth templates alone scored AUROC 0.66 / recall 0.58 vs held-out test —
+    below the 0.72 kill gate). Positives oversampled; hard negs = toxic but
+    non-jailbreak prompts. Test split NEVER enters training. Empty list if
+    data absent (CI-safe skip, heap/wiki precedent). Credential-pattern rows
+    dropped defensively (same guard as test_no_real_secrets)."""
+    global _CRED_RE
+    import re
+
+    if _CRED_RE is None:
+        _CRED_RE = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|\b\d{3}-\d{2}-\d{4}\b|\b4\d{15}\b")
+    rows = load_toxicchat("train")
+    if not rows:
+        return []
+    from .arth import RISK_PLUS_LABELS
+
+    jail_idx = RISK_PLUS_LABELS.index("jailbreak")
+    # hold-out purity: toxicchat0124 train/test share 196 identical inputs
+    # (incl. 14/91 test positives) — drop any test-seen input from training.
+    test_inputs = {r["input"] for r in load_toxicchat("test")}
+    safe = [r for r in rows if not _CRED_RE.search(r["input"]) and r["input"] not in test_inputs]
+    pos = [r for r in safe if r["jailbreak"] == 1]
+    neg = [r for r in safe if r["jailbreak"] == 0]
+    rng = random.Random(seed + 970)
+    out = []
+    for i in range(pos_oversample):
+        for r in pos:
+            vec = [0] * 14
+            vec[jail_idx] = 1
+            out.append({"input": r["input"], "risk14": vec, "source": "toxicchat/jailbreak"})
+        if i == 0 and len(pos) == 0:
+            break
+    picked = rng.sample(neg, min(n_neg, len(neg)))
+    for r in picked:
+        out.append({"input": r["input"], "risk14": [0] * 14, "source": "toxicchat/neg"})
+    return out
+
+
 def _sample_code_text(seed: int, n_each: int):
     """Yield (bytes, kind, label) from synth buckets + real samples."""
     from .data import SyntheticGenerator
@@ -522,8 +564,12 @@ def load_enron(path: str = os.path.join(_ROOT, "data/raw/enron.json")) -> list[d
         return []
 
 
-def load_toxicchat(path: str = os.path.join(_ROOT, "data/raw/toxicchat.json")) -> list[dict]:
-    """Jailbreak eval. Local cache first; optional download; else skip."""
+def load_toxicchat(split: str = "test", path: str = "") -> list[dict]:
+    """ToxicChat (lmsys/toxic-chat, toxicchat0124). split='train' feeds the
+    toxicchat_jail training split; split='test' is HELD-OUT gate eval only.
+    Local caches under data/raw/ (gitignored, never redistributed)."""
+    if not path:
+        path = os.path.join(_ROOT, f"data/raw/toxicchat_{split}.json")
     if os.path.exists(path):
         with open(path) as f:
             return json.load(f)
@@ -531,10 +577,24 @@ def load_toxicchat(path: str = os.path.join(_ROOT, "data/raw/toxicchat.json")) -
         from datasets import load_dataset
 
         ds_id = os.environ.get("TOXICCHAT_DATASET", "lmsys/toxic-chat")
-        ds = load_dataset(ds_id, split="train")
-        return [{"input": str(r.get("prompt", r.get("text", "")))[:2000], "source": "toxicchat"} for r in ds]
+        try:
+            ds = load_dataset(ds_id, "toxicchat0124", split=split)
+        except Exception:
+            ds = load_dataset(ds_id, split=split)
+        rows = [
+            {
+                "input": str(r.get("user_input", r.get("prompt", r.get("text", ""))))[:2000],
+                "jailbreak": int(r.get("jailbreaking", r.get("jailbreak", 0)) or 0),
+                "source": "toxicchat",
+            }
+            for r in ds
+        ]
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(rows, f)
+        return rows
     except Exception as e:
-        print(f"toxicchat unavailable ({e}); skipping")
+        print(f"toxicchat({split}) unavailable ({e}); skipping")
         return []
 
 
@@ -566,6 +626,7 @@ def merkle_root(hashes: list[str]) -> str:
 SPLIT_BUILDERS = {
     "riskpp_synth": lambda seed: [x for g, s in zip(RISKPP_GENERATORS.values(), range(8)) for x in g(500, seed + s * 1000)],
     "benign_hard": lambda seed: gen_benign_hard(1500, seed),
+    "toxicchat_jail": lambda seed: gen_toxicchat_jail(seed),
     "semantic_choice": lambda seed: make_choice_decisions(6000, seed),
     "semantic_score": lambda seed: make_score_decisions(2000, seed),
     "semantic_noul": lambda seed: make_noul_decisions(2000, seed),
@@ -609,6 +670,14 @@ def verify_manifest(path: str = MANIFEST_PATH) -> bool:
     seed = saved["seed"]
     ok = True
     for name, fn in SPLIT_BUILDERS.items():
+        # external-data splits: skip when source cache absent (CI) — explicit
+        # condition so a real generator regression (silent [] with cache present)
+        # still fails the lock.
+        if name == "toxicchat_jail" and not os.path.exists(
+            os.path.join(_ROOT, "data/raw/toxicchat_train.json")
+        ):
+            print(f"SKIP {name} (toxicchat_train.json absent)")
+            continue
         items = fn(seed)
         root = merkle_root([item_hash(it) for it in items])
         if root != saved["splits"][name]["root"]:
