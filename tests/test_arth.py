@@ -472,3 +472,35 @@ def test_onnx_export_smoke(arth, tmp_path):
     assert out[9].shape == (1, 14)  # riskpp_logits
     model = onnx.load(path, load_external_data=False)
     assert model.ir_version == 8
+
+
+def test_external_audit():
+    """External hand-labeled audit set (plan §3 Cheap-Verifiers rule arXiv:2609.01345):
+    structure, credential guard, and zero overlap with training generators."""
+    import re
+
+    from model.pico_type.arth_data import RISKPP_GENERATORS, gen_benign_hard
+
+    path = os.path.join(ROOT, "data", "arth_audit_external.json")
+    with open(path) as f:
+        audit = json.load(f)
+    items = audit["items"]
+    assert len(items) >= 60
+    assert "hand" in audit["labeled_by"]
+    assert "NEVER used in training" in audit["protocol"]
+
+    train_texts = set()
+    for gen in list(RISKPP_GENERATORS.values()) + [lambda n, s: gen_benign_hard(n, s)]:
+        train_texts.update(it["input"] for it in gen(100, 3))
+
+    cred = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|\b\d{3}-\d{2}-\d{4}\b|\b4\d{15}\b")
+    pos_seen = 0
+    for it in items:
+        assert len(it["risk14"]) == 14
+        assert set(it["risk14"]) <= {0, 1}
+        assert it["text"] not in train_texts, "audit must never overlap training"
+        pos_seen += sum(it["risk14"])
+        for m in cred.finditer(it["text"]):
+            ctx = it["text"][max(0, m.start() - 30) : m.end() + 30]
+            assert "EXAMPLE" in ctx or re.fullmatch(r"(000|666|9\d\d)-\d{2}-\d{4}", m.group(0)), m.group(0)
+    assert pos_seen >= 20  # positives exist across labels
