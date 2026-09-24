@@ -241,7 +241,11 @@ def train(args) -> dict:
                         with torch.no_grad():
                             pred = int(logits[i].argmax())
                         if pred != s["correct"]:
-                            cal_terms.append(-(F.log_softmax(logits[i : i + 1], dim=-1) + 1e-12).mean())
+                            # slice to REAL options: batch pads sit at -1e9 and
+                            # would blow up the log-softmax mean (k<K mixed batches)
+                            k = len(s["options"])
+                            lg = logits[i, :k]
+                            cal_terms.append(-(F.log_softmax(lg, dim=-1) + 1e-12).mean())
                     elif s["mode"] == "score":
                         tgt = torch.tensor(s["scores"], dtype=torch.float, device=device)
                         l_sem = l_sem + F.binary_cross_entropy_with_logits(logits[i, : len(tgt)], tgt)

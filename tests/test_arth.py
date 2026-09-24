@@ -430,6 +430,23 @@ def test_verify_manifest():
     assert verify_manifest() is True
 
 
+def test_train_mixed_option_cal_bounded(tmp_path):
+    """Regression: 2-option ext rows (SST/Enron) batched with 4-option rows must
+    not blow up the calibrator CE — padded -1e9 slots entered the log-softmax
+    mean and drove cal to 1.4e8 / total 7.1e5 on the first FT4 launch (caught
+    at step 4850, killed before any checkpoint)."""
+    from model.pico_type import arth_train as at
+
+    if not os.path.exists(os.path.join(ROOT, "data", "raw", "arth", "riskpp_synth.jsonl")):
+        pytest.skip("corpora not built")
+    out = at.train(
+        _train_args(tmp_path, steps=3, n_sem=16, n_risk=2, n_legacy=2, n_rel=1)
+    )
+    for rec in out["history"]:
+        assert rec["cal"] < 100, f"cal exploded: {rec}"
+        assert rec["total"] < 100, f"total exploded: {rec}"
+
+
 def test_latency_smoke(arth):
     ids, mask = _ids_mask(b"x = 1\n" * 100)
     joined, spans = mark_options(b"x = 1", [b"a", b"b", b"c", b"d"])

@@ -28,13 +28,14 @@ def choice_logits(m: ArthModel, items: list[dict], bs: int = 64) -> list[torch.T
     out: list[torch.Tensor] = []
     for i in range(0, len(items), bs):
         chunk = items[i : i + bs]
-        ids = [[b for b in s["input"].encode("utf-8", errors="replace")[:1024]] for s in chunk]
-        ln = max(len(x) for x in ids)
-        pad = torch.zeros(len(ids), ln, dtype=torch.long)
-        mask = torch.zeros(len(ids), ln, dtype=torch.bool)
-        for j, x in enumerate(ids):
-            pad[j, : len(x)] = torch.tensor(x)
-            mask[j, : len(x)] = True
+        # fixed 1024-pad (established ARTH protocol: trunk pooled is NOT
+        # pad-length invariant — verified max abs diff 24.09 on same input)
+        pad = torch.zeros(len(chunk), 1024, dtype=torch.long)
+        mask = torch.zeros(len(chunk), 1024, dtype=torch.bool)
+        for j, s in enumerate(chunk):
+            b = s["input"].encode("utf-8", errors="replace")[:1024]
+            pad[j, : len(b)] = torch.tensor(list(b))
+            mask[j, : len(b)] = True
         pooled = m.pooled(pad, mask)
         maxk = max(len(s["options"]) for s in chunk)
         bems, kmask = [], []
