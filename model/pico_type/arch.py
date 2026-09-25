@@ -115,6 +115,41 @@ class RotaryPosEmb(nn.Module):
         return _apply_rope(q, cos, sin), _apply_rope(k, cos, sin)
 
 
+def hypercube_sparse_attention(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    bit: int,
+    key_valid: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Rotating hypercube wiring (arXiv:2609.18145): query position i attends
+    only to itself and to its neighbour along dimension `bit`, i.e. j = i XOR
+    2**bit. Reusing attention blocks over log2(n) layers (dimensions rotated
+    0, 1, ... log2(n)-1) therefore reaches every position in log2(n) layers
+    with 2n links per layer instead of n^2. The self key is always allowed; a
+    neighbour key that falls outside the sequence or is masked (padding) is
+    dropped. Runs in O(B*H*L*D) memory — no L x L mask is ever materialized.
+    q, k, v: [B, H, L, D]; key_valid: [B, L] bool (True = usable key)."""
+    B, H, L, D = q.shape
+    scale = D**-0.5
+    idx = torch.arange(L, device=q.device)
+    nbr = idx ^ (1 << bit)
+    in_range = nbr < L
+    nbr_safe = torch.where(in_range, nbr, idx)
+    if key_valid is not None:
+        in_range = in_range & key_valid[:, nbr_safe]
+    idx4 = nbr_safe.view(1, 1, L, 1).expand(B, H, L, D)
+    k_nbr = k.gather(2, idx4)
+    v_nbr = v.gather(2, idx4)
+    logit_self = (q * k).sum(-1) * scale
+    logit_nbr = (q * k_nbr).sum(-1) * scale
+    neg_inf = torch.finfo(q.dtype).min
+    in_range3 = in_range.view(1, 1, L) if in_range.dim() == 1 else in_range[:, None, :]
+    logit_nbr = torch.where(in_range3, logit_nbr, torch.full_like(logit_nbr, neg_inf))
+    w = torch.softmax(torch.stack((logit_self, logit_nbr), dim=-1), dim=-1)
+    return w[..., 0:1] * v + w[..., 1:2] * v_nbr
+
+
 class AttnBlock(nn.Module):
     def __init__(
         self,
@@ -142,22 +177,36 @@ class AttnBlock(nn.Module):
         self.resid_drop = nn.Dropout(dropout)
         self.rope = RotaryPosEmb(self.head_dim, rope_theta)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        hypercube_bit: int | None = None,
+    ) -> torch.Tensor:
         B, L, D = x.shape
         h = self.norm1(x)
         qkv = self.qkv(h).reshape(B, L, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
         q, k = self.rope(q, k)
-        attn_mask_float = None
-        if mask is not None:
-            attn_mask_float = mask[:, None, None, :].to(dtype=q.dtype)
-            attn_mask_float = torch.where(attn_mask_float.to(torch.bool), 0.0, float("-inf"))
-        out = F.scaled_dot_product_attention(
-            q, k, v,
-            attn_mask=attn_mask_float,
-            dropout_p=self.attn_drop if self.training else 0.0,
-            is_causal=False,
-        )
+        if hypercube_bit is not None:
+            if self.training:
+                raise RuntimeError("hypercube wiring is inference-only (dropout path untested)")
+            if mask is None:
+                key_valid = torch.ones(B, L, dtype=torch.bool, device=q.device)
+            else:
+                key_valid = mask.to(device=q.device, dtype=torch.bool)
+            out = hypercube_sparse_attention(q, k, v, hypercube_bit, key_valid)
+        else:
+            attn_mask_float = None
+            if mask is not None:
+                attn_mask_float = mask[:, None, None, :].to(dtype=q.dtype)
+                attn_mask_float = torch.where(attn_mask_float.to(torch.bool), 0.0, float("-inf"))
+            out = F.scaled_dot_product_attention(
+                q, k, v,
+                attn_mask=attn_mask_float,
+                dropout_p=self.attn_drop if self.training else 0.0,
+                is_causal=False,
+            )
         out = out.transpose(1, 2).reshape(B, L, D)
         x = x + self.resid_drop(self.out_proj(out))
         x = x + self.mlp(self.norm2(x))

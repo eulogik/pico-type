@@ -265,17 +265,46 @@ class ArthModel(nn.Module):
         self.riskpp.warm_start_from(self.trunk.heads["risk"])
         self.act = ActHead()
         self.calibrator = Calibrator()
+        self.wiring = "dense"
+        self.virtual_layers: int | None = None
 
-    def pooled(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def pooled(
+        self,
+        ids: torch.Tensor,
+        mask: torch.Tensor,
+        wiring: str | None = None,
+        virtual_layers: int | None = None,
+    ) -> torch.Tensor:
         """Trunk pooled features. No no_grad here: Phase A freezes trunk params
         (so no graph builds); Phase B unfreezes and MUST receive grads from
-        semantic/risk/rel paths (inference callers simply ignore grad)."""
+        semantic/risk/rel paths (inference callers simply ignore grad).
+
+        wiring="dense" is the shipped path, byte-identical to before.
+        wiring="hypercube" applies the rotating sparse wiring of
+        arXiv:2609.18145 over `virtual_layers` tied applications of the two
+        trunk attention blocks (dimension = layer mod log2(n)); virtual_layers
+        defaults to log2(n), which reaches every position in log2(n) layers
+        with 2n links per layer. Set virtual_layers=len(attn_blocks) for the
+        in-place 2-layer variant. Inference-only."""
+        wiring = self.wiring if wiring is None else wiring
         x = self.trunk.embed(ids).transpose(1, 2)
         for b in self.trunk.conv_blocks:
             x = b(x)
         x = x.transpose(1, 2)
-        for b in self.trunk.attn_blocks:
-            x = b(x, mask)
+        if wiring == "dense":
+            for b in self.trunk.attn_blocks:
+                x = b(x, mask)
+        elif wiring == "hypercube":
+            n = ids.size(1)
+            dims = max(1, n.bit_length() - 1)
+            layers = virtual_layers if virtual_layers is not None else self.virtual_layers
+            if layers is None:
+                layers = dims
+            blocks = self.trunk.attn_blocks
+            for layer in range(layers):
+                x = blocks[layer % len(blocks)](x, mask, hypercube_bit=layer % dims)
+        else:
+            raise ValueError(f"unknown wiring {wiring!r} (dense|hypercube)")
         return self.trunk.pool(x, mask)
 
     def legacy(self, ids: torch.Tensor, mask: torch.Tensor, tier: str = "base") -> dict[str, torch.Tensor]:

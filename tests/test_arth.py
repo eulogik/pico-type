@@ -207,6 +207,102 @@ def test_riskpp_label_coverage():
     assert not missing, f"labels with zero training positives: {sorted(missing)}"
 
 
+def test_hypercube_edge_structure():
+    """Hypercube wiring (arXiv:2609.18145): query i sees exactly {i, i XOR 2**bit}."""
+    from model.pico_type.arch import hypercube_sparse_attention
+
+    L, D = 8, 4
+    torch.manual_seed(0)
+    q = torch.randn(1, 1, L, D)
+    k = torch.randn(1, 1, L, D)
+    v = torch.randn(1, 1, L, D)
+    for bit in range(3):
+        out = hypercube_sparse_attention(q, k, v, bit)
+        mask = torch.zeros(L, L, dtype=torch.bool)
+        for i in range(L):
+            mask[i, i] = True
+            mask[i, i ^ (1 << bit)] = True
+        ref = torch.nn.functional.scaled_dot_product_attention(
+            q, k, v, attn_mask=mask.view(1, 1, L, L)
+        )
+        assert torch.allclose(out, ref, atol=1e-6), f"bit {bit} mismatch"
+
+
+def test_hypercube_reaches_all_positions():
+    """log2(n) rotated dimensions -> every position reachable in log2(n)
+    layers (the paper's core claim; a fixed pattern held across layers fails)."""
+    n = 64
+    dims = n.bit_length() - 1
+    reach = torch.eye(n, dtype=torch.bool)
+    for layer in range(dims):
+        bit = layer % dims
+        nxt = torch.zeros(n, n, dtype=torch.bool)
+        for i in range(n):
+            nxt[i] = reach[i] | reach[i ^ (1 << bit)]
+        reach = nxt
+    assert reach.all()
+    fixed = torch.eye(n, dtype=torch.bool)
+    for _ in range(dims):
+        fixed = fixed | torch.stack(
+            [fixed[i ^ 1] for i in range(n)]
+        )
+    assert not fixed.all(), "fixed (non-rotating) pattern must NOT reach all in dims steps"
+
+
+def test_hypercube_padding_respected():
+    from model.pico_type.arch import hypercube_sparse_attention
+
+    L, D, B = 8, 4, 3
+    torch.manual_seed(0)
+    q = torch.randn(B, 1, L, D)
+    k = torch.randn(B, 1, L, D)
+    v = torch.randn(B, 1, L, D)
+    key_valid = torch.ones(B, L, dtype=torch.bool)
+    key_valid[0, 3] = False
+    key_valid[2, 1] = False
+    out = hypercube_sparse_attention(q, k, v, 1, key_valid)
+    mask = torch.zeros(B, L, L, dtype=torch.bool)
+    for b in range(B):
+        for i in range(L):
+            mask[b, i, i] = True
+            j = i ^ 2
+            if j < L and bool(key_valid[b, j]):
+                mask[b, i, j] = True
+    ref = torch.nn.functional.scaled_dot_product_attention(
+        q, k, v, attn_mask=mask[:, None]
+    )
+    assert torch.allclose(out, ref, atol=1e-6)
+
+
+def test_hypercube_dense_path_unchanged(arth):
+    """Default (dense) pooled must be byte-identical to explicit dense after
+    the wiring is added — the shipped legacy-parity contract."""
+    data = b"def hello(name):\n    return f'hi {name}'\n" * 20
+    ids, mask = _ids_mask(data)
+    with torch.no_grad():
+        a = arth.pooled(ids, mask)
+        b = arth.pooled(ids, mask, wiring="dense")
+    assert torch.equal(a, b)
+
+
+def test_hypercube_model_forward_runs(arth):
+    data = b"the quick brown fox jumps over the lazy dog. " * 8
+    ids, mask = _ids_mask(data)
+    with torch.no_grad():
+        dense = arth.pooled(ids, mask)
+        hyb = arth.pooled(ids, mask, wiring="hypercube")
+    assert dense.shape == hyb.shape
+    assert not torch.equal(dense, hyb)
+    with pytest.raises(ValueError):
+        arth.pooled(ids, mask, wiring="bogus")
+    arth.trunk.train()
+    try:
+        with pytest.raises(RuntimeError):
+            arth.pooled(ids, mask, wiring="hypercube")
+    finally:
+        arth.trunk.eval()
+
+
 def test_no_real_secrets():
     import re
 
