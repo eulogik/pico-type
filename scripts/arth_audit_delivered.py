@@ -5,6 +5,12 @@ in-loop verifier dashboards read 3% error while true error hits 32%. Every
 delivered-error number for Risk++/act MUST come from `data/arth_audit_external.json`
 (hand-labeled, never trained on, never used for threshold/temperature fitting).
 
+Metric note (2026-09-23): flag-level error over the 14-label vector is
+negatively dominated (2842 neg vs 112 pos) and therefore rewards not flagging —
+an all-negative predictor scores lower than a working guardrail. The PRIMARY
+delivered metric is positive recall (+ balanced error); flag-level error is
+printed only as a secondary number next to its all-negative baseline.
+
 Usage: python scripts/arth_audit_delivered.py [--ckpt ...]
 Exit code: 0 = report written (informational; no numeric gate is pre-registered
 for the audit — numbers are for release/paper citation only).
@@ -67,7 +73,12 @@ def main() -> None:
     total_fn = sum(v["fn"] for v in per_label.values())
     total_fp = sum(v["fp"] for v in per_label.values())
     total_flags = sum(v["pos"] + v["neg"] for v in per_label.values())
+    total_pos = sum(v["pos"] for v in per_label.values())
+    total_neg = total_flags - total_pos
     delivered_error = (total_fn + total_fp) / max(1, total_flags)
+    pos_recall = (total_pos - total_fn) / max(1, total_pos)
+    neg_spec = (total_neg - total_fp) / max(1, total_neg)
+    allneg_error = total_pos / max(1, total_flags)
 
     print(f"external hand-labeled audit: {n} items x {len(RISK_PLUS_LABELS)} labels = {total_flags} decisions")
     print(f"{'label':<18} {'pos':>4} {'neg':>4} {'FN':>3} {'FP':>3}  recall  spec")
@@ -78,7 +89,13 @@ def main() -> None:
         mark = " *" if (v["fn"] or v["fp"]) and (v["pos"] or v["neg"] > 5) else ""
         print(f"{lbl:<18} {v['pos']:>4} {v['neg']:>4} {v['fn']:>3} {v['fp']:>3}  {rec:>6.3f} {spec:>6.3f}{mark}")
     print(f"\nitem exact-match: {item_exact}/{n} = {item_exact/n:.3f}")
-    print(f"DELIVERED ERROR (flag-level, external labels): {delivered_error:.4f}")
+    print(f"POSITIVE RECALL (primary delivered metric): {total_pos - total_fn}/{total_pos} = {pos_recall:.4f}")
+    print(f"negative specificity: {total_neg - total_fp}/{total_neg} = {neg_spec:.4f}")
+    print(f"balanced error 0.5*(FNR+FPR): {0.5*((1 - pos_recall) + (1 - neg_spec)):.4f}")
+    print(f"flag-level error: {delivered_error:.4f}  ** SECONDARY — {total_neg}:{total_pos} neg:pos "
+          f"dominance; all-negative predictor scores {allneg_error:.4f}, i.e. flag-level error "
+          f"REWARDS not flagging (the Cheap-Verifiers trap, arXiv:2609.01345). Cite positive "
+          f"recall / balanced error, never flag-level error alone.")
     print("source: data/arth_audit_external.json (hand-labeled; never trained/fit)")
     print("protocol: arXiv:2609.01345 — never recompute this through the model itself")
 
