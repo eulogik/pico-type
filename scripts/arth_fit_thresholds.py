@@ -71,13 +71,13 @@ def collect(m: ArthModel, gen_seed_base: int, benign_seed: int) -> dict[str, tup
             (pos if any(it["risk14"]) else neg).append(s)
         neg.extend(scores_for(m, benign, gname))
         result[gname] = (np.array(pos), np.array(neg))
-    # api_key: labeled by secrets_aws + secrets_github positives (RISK14 index 4 is email;
-    # api_key is index 0 in RISK14)
+    # api_key: positives ride secrets_aws + secrets_github + the dedicated
+    # api_key generator (amendment #4); negatives likewise.
     from model.pico_type.arth_data import RISK14
 
     ak_idx = RISK14.index("api_key")
     pos, neg = [], []
-    for gi, gname in enumerate(("secrets_aws", "secrets_github")):
+    for gname in ("secrets_aws", "secrets_github", "api_key"):
         gen = RISKPP_GENERATORS[gname]
         for it in gen(80, gen_seed_base + list(RISKPP_GENERATORS).index(gname)):
             s = scores_for(m, [it], "api_key")[0]

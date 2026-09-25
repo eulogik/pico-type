@@ -1,10 +1,9 @@
 {
   "seed": 7,
-  "frozen": true,
   "splits": {
     "riskpp_synth": {
-      "n": 4000,
-      "root": "757df8acde8073b9868be13ccbfe0845bb2d72c2f4f2f134bb993c54a03276de"
+      "n": 7000,
+      "root": "e61371c8f72c45722667dd892922ce22cba7819d2b18428a43368325ad4c38d5"
     },
     "benign_hard": {
       "n": 1500,
@@ -58,5 +57,6 @@
       "n": 5000,
       "root": "c4e547bbd680a89f0b55f1b459cd0fc38c213f25bb5bbb8371e95d3b49fb8582"
     }
-  }
+  },
+  "frozen": true
 }

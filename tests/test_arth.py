@@ -190,6 +190,23 @@ def test_riskpp_generators():
     assert total_pos > len(RISKPP_GENERATORS) * 10
 
 
+def test_riskpp_label_coverage():
+    """Amendment #4 regression (2026-09-23): every RISK14 label must appear as a
+    training positive in some generator. jwt/ssh_key/password/email/phone had
+    ZERO positives (RISK14.index never called) — first surfaced as external-audit
+    recall 0.000, not by any in-repo test. This test closes that blind spot."""
+    from model.pico_type.arth_data import RISK14, RISKPP_GENERATORS
+
+    seen = set()
+    for gen in RISKPP_GENERATORS.values():
+        for it in gen(100, 3):
+            for i, b in enumerate(it["risk14"]):
+                if b:
+                    seen.add(RISK14[i])
+    missing = set(RISK14) - seen
+    assert not missing, f"labels with zero training positives: {sorted(missing)}"
+
+
 def test_no_real_secrets():
     import re
 
@@ -312,7 +329,8 @@ def test_manifest_and_loaders():
     with open(os.path.join(ROOT, "data", "arth_manifest.json")) as f:
         meta = json.load(f)
     assert meta["frozen"] is True and meta["seed"] == 7
-    assert meta["splits"]["riskpp_synth"]["n"] == 4000
+    # manifest amendment #4: riskpp_synth 4000 -> 7000 (6 new generators)
+    assert meta["splits"]["riskpp_synth"]["n"] == 7000
     assert meta["splits"]["benign_hard"]["n"] == 1500
     assert meta["splits"]["toxicchat_jail"]["n"] == 897  # (113-14 test-overlap)*3 + 600neg
     assert meta["splits"]["heap_code"]["n"] == 8709

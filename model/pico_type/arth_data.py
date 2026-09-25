@@ -150,15 +150,37 @@ def gen_jailbreak(n: int, seed: int) -> list[dict]:
 
 
 def gen_pii_ssn(n: int, seed: int) -> list[dict]:
+    """Multi-frame since amendment #4 (2026-09-23): the original single
+    "EXAMPLE VAULT RECORD" template let the head key on the frame, not SSN-ness
+    (external AUC 0.42, worse than chance). Frames mirror how SSNs appear in
+    real tickets/forms/exports — wording kept distinct from the hand-labeled
+    audit (exact-overlap guard)."""
     rng = random.Random(seed + 2)
+    pos_frames = [
+        lambda r: f"EXAMPLE VAULT RECORD\nname: Test Citizen {r.randint(1, 999)}\nssn: {_fake_ssn(r)}\n",
+        lambda r: f"Application record: SSN {_fake_ssn(r)} (EXAMPLE field)\n",
+        lambda r: f"tax record ssn: {_fake_ssn(r)} EXAMPLE\n",
+        lambda r: f"intake form field SSN: {_fake_ssn(r)}\n",
+        lambda r: f"hr dump row: employee_ssn={_fake_ssn(r)} EXAMPLE\n",
+        lambda r: f"background check note: ssn {_fake_ssn(r)} (EXAMPLE placeholder)\n",
+        lambda r: f"record mismatch: national_id holds ssn {_fake_ssn(r)} EXAMPLE\n",
+        lambda r: f"do not ship: applicant {r.choice(['ssn', 'SSN', 'social security no.'])} {_fake_ssn(r)} EXAMPLE\n",
+    ]
+    neg_frames = [
+        lambda r: f"EXAMPLE VAULT RECORD\nname: Test Citizen {r.randint(1, 999)}\ndob: 1990-04-15\n",
+        lambda r: f"Application record: employee id E{r.randint(1000, 9999)} (EXAMPLE field)\n",
+        lambda r: "tax record filing: form W-9 EXAMPLE on file\n",
+        lambda r: "intake form field DOB: 04-15-1990\n",
+        lambda r: f"hr dump row: employee_id={r.randint(1000, 9999)} EXAMPLE\n",
+    ]
     out = []
     for _ in range(n):
         if rng.random() < 0.7:
-            text = f"EXAMPLE VAULT RECORD\nname: Test Citizen {rng.randint(1, 999)}\nssn: {_fake_ssn(rng)}\n"
+            text = rng.choice(pos_frames)(rng)
             vec = [0] * 14
             vec[RISK14.index("pii_ssn")] = 1
         else:
-            text = f"EXAMPLE VAULT RECORD\nname: Test Citizen {rng.randint(1, 999)}\nphone: 555-0100\n"
+            text = rng.choice(neg_frames)(rng)
             vec = [0] * 14
         out.append({"input": text, "risk14": vec, "source": "synth/pii_ssn"})
     return out
@@ -241,6 +263,256 @@ def gen_xss_payload(n: int, seed: int) -> list[dict]:
     return out
 
 
+# --- amendment #4 generators (2026-09-23): jwt/ssh_key/password/email/phone had
+# ZERO training positives (RISK14.index never called for them — caught by the
+# external-audit recall collapse); api_key had only AKIA/ghp frames, so
+# sk-/stripe/Bearer forms collapsed to p~0.002 externally. Multi-frame,
+# real-world phrasing per the audit lesson; all values fake/EXAMPLE-guarded. ---
+
+def _fake_jwt(rng: random.Random) -> str:
+    hdr = rng.choice([
+        "eyJhbGciOiJIUzI1NiJ9", "eyJhbGciOiJSUzI1NiJ9", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9",
+        "eyJhbGciOiJub25lIn0", "eyJhbGciOiJFQ0RQSU4ifQ",
+    ])
+    pay = rng.choice([
+        "eyJzdWIiOiJ1c2VyIn0", "eyJzdWIiOiJib3QifQ", "eyJyb2xlIjoiYWRtaW4ifQ",
+        "eyJhdWQiOiJhcHAifQ", "eyJzdWIiOiJzdmMtYWNjb3VudCJ9",
+    ])
+    sig = rng.choice(["EXAMPLEsig", "r3sULT-EXAMPLEsig", "EXAMPLE", "zzz-EXAMPLE"])
+    return f"{hdr}.{pay}.{sig}"
+
+
+def _fake_ssh(rng: random.Random) -> str:
+    kind = rng.choice(["OPENSSH", "RSA", "EC"])
+    body = "EXAMPLE" if kind == "OPENSSH" else rng.choice(["EXAMPLE", "MIIEpAIBAAKCAQEAxEXAMPLE", "aGVsbG8tRVhhTVBMRQEXAMPLE"])
+    return f"-----BEGIN {kind} PRIVATE KEY EXAMPLE-----\n{body}\n-----END {kind} PRIVATE KEY EXAMPLE-----"
+
+
+def gen_api_key(n: int, seed: int) -> list[dict]:
+    """api_key label ONLY (aws/gh key forms stay in their own generators —
+    a ghp_ row here labeled secrets_github=0 would contradict gen_secrets_github)."""
+    rng = random.Random(seed + 8)
+    key = lambda: rng.choice([
+        f"sk-ant-EXAMPLE{rng.randint(10**8, 10**9 - 1)}",
+        f"sk_live_{rng.randint(1000, 9999)}EXAMPLE{rng.randint(1000, 9999)}",
+        f"sk-proj-EXAMPLE{rng.choice('ABCDEFGH')}{rng.randint(100, 999)}",
+        f"pk_internal_EXAMPLE_{rng.randint(1000, 9999)}",
+        f"demo-EXAMPLE-{rng.randint(1000, 9999):04x}",
+        f"rk_test_EXAMPLE{rng.randint(10, 99)}{rng.randint(10, 99)}",
+    ])
+    pos_frames = [
+        lambda r: f'curl -H "Authorization: Bearer {key()}" https://api.example.test/v1/messages\n',
+        lambda r: f"config: {rng.choice(['stripe_key', 'openai_key', 'anthropic_key'])} = {key()}\n",
+        lambda r: f"Authorization: ApiKey {key()}\n",
+        lambda r: f"app config api_key: {key()}\n",
+        lambda r: f"export CLIENT_SECRET={key()}\n",
+        lambda r: f"deploy log: using key {key()} (EXAMPLE)\n",
+        lambda r: f'{{"api_key": "{key()}", "env": "test"}}\n',
+    ]
+    neg_frames = [
+        lambda r: f"config: endpoint_url = https://api.example.test/{r.choice(['v1', 'v2'])}\n",
+        lambda r: "curl -H \"Content-Type: application/json\" https://api.example.test/v1/messages\n",
+        lambda r: "app config: api_key = REDACTED-EXAMPLE\n",
+        lambda r: "deploy log: rotating EXAMPLE credentials (values not shown)\n",
+        lambda r: '{"api_key": "EXAMPLE-only-placeholder", "env": "test"}\n',
+        lambda r: f"config: timeout_ms = {r.randint(100, 9999)}\n",
+    ]
+    out = []
+    for _ in range(n):
+        if rng.random() < 0.7:
+            text = rng.choice(pos_frames)(rng)
+            vec = [0] * 14
+            vec[RISK14.index("api_key")] = 1
+        else:
+            text = rng.choice(neg_frames)(rng)
+            vec = [0] * 14
+        out.append({"input": text, "risk14": vec, "source": "synth/api_key"})
+    return out
+
+
+def gen_jwt(n: int, seed: int) -> list[dict]:
+    rng = random.Random(seed + 9)
+    pos_frames = [
+        lambda r: f"session token: {_fake_jwt(r)}\n",
+        lambda r: f"refresh jwt: {_fake_jwt(r)}\n",
+        lambda r: f"decoded header alg=HS256; payload sub={r.choice(['svc-account', 'user', 'bot'])}; sig {_fake_jwt(r).split('.')[-1]}\n",
+        lambda r: f"expired at jwt {_fake_jwt(r)}\n",
+        lambda r: f"auth cookie session={_fake_jwt(r)}\n",
+        lambda r: f"ID token (jwt): {_fake_jwt(r)}\n",
+        lambda r: f"signing test vector jwt {_fake_jwt(r)}\n",
+        lambda r: f"paste: {_fake_jwt(r)}\n",
+        lambda r: f"token introspection: {_fake_jwt(r)} (EXAMPLE)\n",
+    ]
+    neg_frames = [
+        lambda r: f"session id: sess-{r.randint(10000, 99999)}\n",
+        lambda r: f"auth method: api key rotation scheduled {r.choice(['Monday', 'Tuesday', 'Friday'])}\n",
+        lambda r: "cookie: sticky_session=EXAMPLE\n",
+        lambda r: f"token bucket refill: {r.randint(10, 999)}/s\n",
+        lambda r: "login flow uses single sign-on via EXAMPLE provider\n",
+    ]
+    out = []
+    for _ in range(n):
+        if rng.random() < 0.7:
+            text = rng.choice(pos_frames)(rng)
+            vec = [0] * 14
+            vec[RISK14.index("jwt")] = 1
+        else:
+            text = rng.choice(neg_frames)(rng)
+            vec = [0] * 14
+        out.append({"input": text, "risk14": vec, "source": "synth/jwt"})
+    return out
+
+
+def gen_ssh_key(n: int, seed: int) -> list[dict]:
+    rng = random.Random(seed + 10)
+    pos_frames = [
+        lambda r: f"{_fake_ssh(r)}\n",
+        lambda r: f"authorized_keys entry: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAEXAMPLE{r.randint(10, 99)} {r.choice(['build', 'deploy', 'ci'])}@ci\n",
+        lambda r: f"keyscan: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQEXAMPLE{r.randint(10, 99)} laptop key\n",
+        lambda r: f"git deploy key (public half): ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAEXAMPLE{r.randint(10, 99)} deploy@bot\n",
+        lambda r: f"rotation note: new keypair generated, old {rng.choice(['OPENSSH', 'RSA'])} material destroyed (EXAMPLE)\n",
+        lambda r: "known_hosts entry: [example.test]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5EXAMPLE\n",
+        lambda r: f"id_rsa backup marker: {_fake_ssh(r)}\n",
+    ]
+    neg_frames = [
+        lambda r: f"ssh config:\nHost buildbox\n  User {r.choice(['ci', 'runner'])}\n  Port {r.choice([22, 2222])}\n",
+        lambda r: f"key rotation policy: rotate every {r.choice([90, 180, 365])} days (EXAMPLE)\n",
+        lambda r: f"fingerprint check: SHA256:EXAMPLE{r.randint(1000, 9999)} matched\n",
+        lambda r: f"permission denied (publickey) for deploy@{r.choice(['buildbox', 'prod'])}\n",
+        lambda r: "ssh-add: agent has no keys (EXAMPLE state)\n",
+    ]
+    out = []
+    for _ in range(n):
+        if rng.random() < 0.7:
+            text = rng.choice(pos_frames)(rng)
+            vec = [0] * 14
+            vec[RISK14.index("ssh_key")] = 1
+        else:
+            text = rng.choice(neg_frames)(rng)
+            vec = [0] * 14
+        out.append({"input": text, "risk14": vec, "source": "synth/ssh_key"})
+    return out
+
+
+def gen_password(n: int, seed: int) -> list[dict]:
+    rng = random.Random(seed + 11)
+    pw = lambda: rng.choice([
+        f"ExamplePass-{rng.randint(2024, 2026)}-DoNotReuse",
+        f"correct-horse-EXAMPLE{rng.randint(10, 99)}",
+        f"EXAMPLEpw!{rng.randint(100, 999)}",
+        f"TempPass-EXAMPLE-{rng.randint(10, 99)}",
+        f"SuperSecret-EXAMPLE-{rng.randint(10, 99)}",
+        f"vault-EXAMPLE-{rng.randint(1000, 9999)}",
+    ])
+    pos_frames = [
+        lambda r: f"# deploy notes\nDB_PASSWORD={pw()}\n",
+        lambda r: f"paste from vault: password = \"{pw()}\" (rotate soon)\n",
+        lambda r: f"vault leak alert: field 'password' = '{pw()}'\n",
+        lambda r: f"credentials block:\nuser: {r.choice(['deploy', 'svc_account', 'admin'])}\npassword: {pw()}\n",
+        lambda r: f"reset email says: temporary password will expire in {r.choice([24, 48])}h ({pw()})\n",
+        lambda r: f"cmdb: svc_account password rotated {r.choice(['2026-09', '2026-08'])}; old value was {pw()} EXAMPLE\n",
+        lambda r: f"troubleshooting: {r.choice(['root', 'admin', 'db'])} password prompt during failover — saw {pw()} in log EXAMPLE\n",
+        lambda r: f"staging db: api_db_password={pw()}\n",
+    ]
+    neg_frames = [
+        lambda r: f"# deploy notes\nDB_HOST={r.choice(['primary', 'replica'])}.db.internal\n",
+        lambda r: "password reset page issued (no value shown, EXAMPLE flow)\n",
+        lambda r: f"credentials block:\nuser: {r.choice(['deploy', 'svc_account'])}\nmethod: sso\n",
+        lambda r: f"policy: password rotation enforced every {r.choice([30, 60, 90])} days\n",
+        lambda r: f"vault path: secret/team/{r.choice(['build', 'deploy'])}/EXAMPLE\n",
+        lambda r: "prompt shown: 'enter your password' (terminal, no value)\n",
+    ]
+    out = []
+    for _ in range(n):
+        if rng.random() < 0.7:
+            text = rng.choice(pos_frames)(rng)
+            vec = [0] * 14
+            vec[RISK14.index("password")] = 1
+        else:
+            text = rng.choice(neg_frames)(rng)
+            vec = [0] * 14
+        out.append({"input": text, "risk14": vec, "source": "synth/password"})
+    return out
+
+
+def gen_email(n: int, seed: int) -> list[dict]:
+    rng = random.Random(seed + 12)
+    addr = lambda: rng.choice([
+        f"{rng.choice(['invoices', 'billing', 'qa-notify', 'ops', 'support'])}@{rng.choice(['retailco', 'buildbox', 'mailer'])}.example",
+        f"{rng.choice(['first.last', 'j.smith', 'a.nguyen'])}{rng.choice(['', '+news', '.dev'])}@{rng.choice(['mailbox', 'inbox'])}.example",
+        f"{rng.choice(['team.lead', 'noreply', 'alerts'])}@{rng.choice(['platform', 'statuspage'])}.example",
+    ])
+    pos_frames = [
+        lambda r: f"please send the invoice to {addr()} by {r.choice(['Friday', 'EOD', 'month-end'])}\n",
+        lambda r: f"bounced: mailbox {addr()} is full\n",
+        lambda r: f"from: {addr()}; reply-to: {addr()}\n",
+        lambda r: f"cc me at {addr()} please\n",
+        lambda r: f"contact card: name {r.choice(['R. Lee', 'M. Okafor', 'S. Patel'])}, email {addr()}\n",
+        lambda r: f"newsletter footer: unsubscribe via {addr()}\n",
+        lambda r: f"forwarding rule: anything to {addr()} goes to triage\n",
+        lambda r: f"delivery failed for {addr()} — will retry\n",
+    ]
+    neg_frames = [
+        lambda r: "email me back when you can\n",
+        lambda r: f"the newsletter went out {r.choice(['Tuesday', 'last week'])} — open rate {r.randint(10, 60)}%\n",
+        lambda r: f"email thread archived to {r.choice(['compliance', 'support'])} folder (EXAMPLE)\n",
+        lambda r: f"send the invoice by {r.choice(['Friday', 'EOD'])} (no address in this note)\n",
+        lambda r: f"mailing list updated: {r.randint(10, 999)} subscribers\n",
+        lambda r: "contact form submissions routed to triage queue\n",
+    ]
+    out = []
+    for _ in range(n):
+        if rng.random() < 0.7:
+            text = rng.choice(pos_frames)(rng)
+            vec = [0] * 14
+            vec[RISK14.index("email")] = 1
+        else:
+            text = rng.choice(neg_frames)(rng)
+            vec = [0] * 14
+        out.append({"input": text, "risk14": vec, "source": "synth/email"})
+    return out
+
+
+def gen_phone(n: int, seed: int) -> list[dict]:
+    rng = random.Random(seed + 13)
+    num = lambda: rng.choice([
+        f"+1 555-0{rng.randint(100, 199)}",
+        f"+44 20 7946 {rng.randint(1000, 9999)}",
+        f"({rng.choice([212, 415, 617])}) {rng.randint(200, 999)}-{rng.randint(1000, 9999)}",
+        f"555-0{rng.randint(100, 199)}",
+        f"+1-{rng.choice([202, 303, 512])}-{rng.randint(200, 999)}-{rng.randint(1000, 9999)}",
+    ])
+    pos_frames = [
+        lambda r: f"patient callback number: {num()} (EXAMPLE)\n",
+        lambda r: f"SMS verification sent to {num()} (EXAMPLE)\n",
+        lambda r: f"support line: {num()} (EXAMPLE number)\n",
+        lambda r: f"call back between {r.choice([9, 10])}-{r.choice([17, 18])} at {num()} EXAMPLE\n",
+        lambda r: f"pager escalation: {num()} EXAMPLE\n",
+        lambda r: f"conference dial-in {num()} pin {r.randint(1000, 9999)}\n",
+        lambda r: f"customer note: reach me at {num()} until {r.choice(['Friday', 'EOD'])} EXAMPLE\n",
+        lambda r: f"voicemail transcript from {num()} (EXAMPLE)\n",
+    ]
+    neg_frames = [
+        lambda r: f"callback queue depth: {r.randint(1, 50)} waiting\n",
+        lambda r: f"dial plan: extension {r.randint(100, 999)} routes to {r.choice(['support', 'sales'])}\n",
+        lambda r: f"phone tree option {r.randint(2, 9)} = billing (EXAMPLE)\n",
+        lambda r: f"call center closed {r.choice(['Saturday', 'Sunday'])} (EXAMPLE notice)\n",
+        lambda r: "SMS templates updated (no numbers in this note)\n",
+        lambda r: f"area code EXAMPLE {r.randint(200, 999)} reserved for test range\n",
+    ]
+    out = []
+    for _ in range(n):
+        if rng.random() < 0.7:
+            text = rng.choice(pos_frames)(rng)
+            vec = [0] * 14
+            vec[RISK14.index("phone")] = 1
+        else:
+            text = rng.choice(neg_frames)(rng)
+            vec = [0] * 14
+        out.append({"input": text, "risk14": vec, "source": "synth/phone"})
+    return out
+
+
 RISKPP_GENERATORS = {
     "prompt_injection": gen_prompt_injection,
     "jailbreak": gen_jailbreak,
@@ -250,6 +522,13 @@ RISKPP_GENERATORS = {
     "secrets_github": gen_secrets_github,
     "sql_injection": gen_sql_injection,
     "xss_payload": gen_xss_payload,
+    # amendment #4 (appended — existing gen seeds/positions unchanged):
+    "api_key": gen_api_key,
+    "jwt": gen_jwt,
+    "ssh_key": gen_ssh_key,
+    "password": gen_password,
+    "email": gen_email,
+    "phone": gen_phone,
 }
 
 # --- hard negatives (FP audit 2026-09-22: 7/11 benign false positives after first
@@ -855,7 +1134,7 @@ def merkle_root(hashes: list[str]) -> str:
 
 
 SPLIT_BUILDERS = {
-    "riskpp_synth": lambda seed: [x for g, s in zip(RISKPP_GENERATORS.values(), range(8)) for x in g(500, seed + s * 1000)],
+    "riskpp_synth": lambda seed: [x for g, s in zip(RISKPP_GENERATORS.values(), range(len(RISKPP_GENERATORS))) for x in g(500, seed + s * 1000)],
     "benign_hard": lambda seed: gen_benign_hard(1500, seed),
     "toxicchat_jail": lambda seed: gen_toxicchat_jail(seed),
     "ag_news": lambda seed: gen_ag_news(seed=seed),
