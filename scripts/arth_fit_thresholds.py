@@ -1,12 +1,23 @@
-"""Fit per-label Risk++ decision thresholds on held-out data (Youden's J).
+"""Fit per-label Risk++ decision thresholds: LOWEST T with fit-spec >= floor.
 
-Companion to arth_fit_temps.py (which calibrates semantic heads). The risk head
-ranks well (AUC 0.95-1.0) but a flat 0.5 threshold is the wrong operating point
-(FP audit: benign false positives at 0.5). Fit split: gen seed 555xx + benign
-88888. Eval split (report only): gen 666xx + benign 77777.
+Companion to arth_fit_temps.py (which calibrates semantic heads). Fit split:
+gen seed 555xx + benign 88888. Eval split (report only): gen 666xx + benign 77777.
+The audit (`data/arth_audit_external.json`) is NEVER fit on — eval only.
 
-Writes scripts/risk_thresholds.json: {label: threshold}. Defaults to 0.5 when
-a label has no signal.
+Policy history: the original Youden-J selector maximized J = sens + spec - 1.
+With saturated in-distribution positives (sens ~1.0), J reduces to spec and is
+therefore maximized by the HIGHEST T — hugging the hardest fit negative
+(pii_card 0.999, sql 0.930). In-dist that looks perfect (recall/spec 1.00);
+externally it is dead (OOD positives score 0.01-0.99 and never clear).
+Replacement policy (2026-09-23): per-label specificity FLOOR on fit negatives,
+take the LOWEST threshold satisfying it — in-dist recall is already saturated at
+any such t, while OOD positives regain headroom. Floors: 0.97 default,
+prompt_injection 0.90 (its near-miss benign family genuinely overlaps).
+
+Writes scripts/risk_thresholds.json: {label: threshold}. Labels absent from the
+file (jwt, ssh_key, password, email, phone) have NO trained positives anywhere
+in training data — risk_flags defaults them to 0.5, and no threshold can fix
+that (they need generators + a training round; see plan log 2026-09-23).
 
 Usage: python scripts/arth_fit_thresholds.py [--ckpt ...]
 """
@@ -39,31 +50,15 @@ def scores_for(m: ArthModel, items: list[dict], label: str) -> list[float]:
     return out
 
 
-def fit_thresholds(pos: np.ndarray, neg: np.ndarray, min_spec: float = 0.97, eps: float = 0.005) -> float:
-    """Among thresholds with specificity >= min_spec and J within eps of the best
-    achievable J, return the LOWEST T. The eps band keeps near-optimal operating
-    points from hugging the fit-min-positive (brittle to OOD demo strings that
-    score just below fit positives but above almost all negatives)."""
-    if len(pos) == 0 or len(neg) == 0:
+def fit_thresholds(pos: np.ndarray, neg: np.ndarray, min_spec: float = 0.97) -> float:
+    """Lowest threshold t with (neg < t).mean() >= min_spec (risk_flags fires on
+    >= t, so negatives strictly below t are correct rejections)."""
+    if len(neg) == 0:
         return 0.5
-    cand = np.unique(np.concatenate([pos, neg]))
-    scored = []
-    fallback = (None, -1.0, 0.5)
-    for t in cand:
-        sens = float((pos >= t).mean())
-        spec = float((neg < t).mean())
-        j = sens + spec - 1.0
-        if spec >= min_spec:
-            scored.append((float(t), j))
-        if j > fallback[1]:
-            fallback = (spec, j, float(t))
-    if not scored:
-        return fallback[2]
-    best_j = max(j for _, j in scored)
-    eligible = [t for t, j in scored if j >= best_j - eps]
-    if not eligible:
-        return fallback[2]
-    return min(eligible)
+    for v in np.unique(neg):
+        if float((neg < v).mean()) >= min_spec:
+            return float(v)
+    return float(np.max(neg)) + 1e-4
 
 
 def collect(m: ArthModel, gen_seed_base: int, benign_seed: int) -> dict[str, tuple[np.ndarray, np.ndarray]]:
@@ -110,14 +105,19 @@ def report(name: str, data: dict[str, tuple[np.ndarray, np.ndarray]], thrs: dict
         print(f"  {lab:<18} T={t:.3f} recall={sens:.3f} spec={spec:.3f} auc={auc:.3f}")
 
 
-# Per-label FP budgets: inject's ROC genuinely overlaps (AUC~0.96) — a tight
-# spec budget collapses recall (<0.5); plan does not gate inject. Others tight.
+# Per-label FP budgets: inject's near-miss benign family genuinely overlaps
+# (fit-neg mass >=0.01 is 54%); a 0.97 floor would push its T above the shipped
+# 0.47 and cut in-dist recall. Plan does not gate inject.
 MIN_SPEC = {"prompt_injection": 0.90}
-# eps-floor ONLY for demo-critical secret labels: their OOD demo strings (bare
-# AKIA...EXAMPLE, ghp_EXAMPLE) score just below fit-min-positive, so a strict
-# max-J T (hugging fit min-pos) misses them. Floor admits ~0.5% fit-neg slack.
-# All other labels stay strict max-J (flooring them caused benign FPs).
-FLOOR_EPS = {"api_key": 0.005, "secrets_aws": 0.005, "secrets_github": 0.005}
+# Battery benign-probe floors (owner decision 2026-09-23, "balanced 3/11"):
+# t must clear the channel scores of the two NEW benign-probe FP items so the
+# probe list stays at 3/11 (2 pre-existing prompt_injection FPs accepted as the
+# known inject limitation). Measured on ft3:
+#   print('hello world')        sql=0.0307 xss=0.0260
+#   SELECT id, name FROM users; jailbreak=0.3972 sql=0.3108 (sql flag ACCEPTED
+#   for external sql_injection recall — residual FP = that one item)
+# The audit is NEVER used as a floor source.
+PROBE_FLOOR = {"sql_injection": 0.0311, "xss_payload": 0.0261, "jailbreak": 0.398}
 
 
 def main() -> None:
@@ -131,11 +131,8 @@ def main() -> None:
 
     fit = collect(m, 55500, 88888)
     thrs = {
-        lab: round(
-            fit_thresholds(pos, neg, min_spec=MIN_SPEC.get(lab, 0.97),
-                           eps=FLOOR_EPS.get(lab, 0.0)),
-            4,
-        )
+        lab: round(max(fit_thresholds(pos, neg, min_spec=MIN_SPEC.get(lab, 0.97)),
+                       PROBE_FLOOR.get(lab, 0.0)), 4)
         for lab, (pos, neg) in fit.items()
     }
     ev = collect(m, 66600, 77777)
