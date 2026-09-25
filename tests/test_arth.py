@@ -261,9 +261,10 @@ def test_risk_thresholds_and_flags():
     from model.pico_type.arth import RISK_PLUS_LABELS, load_risk_thresholds, risk_flags
 
     thrs = load_risk_thresholds()
-    # fitted: 8 new Risk++ labels + api_key (from aws/github gens). The 5 legacy
-    # v0.2 labels (jwt/ssh_key/password/email/phone) keep default 0.5.
-    assert len(thrs) == 9
+    # fitted: all 14 Risk++ labels since manifest amendment #4 + the ft5 round
+    # (before that, jwt/ssh_key/password/email/phone had no trained positives
+    # and were correctly absent from the file).
+    assert len(thrs) == 14
     assert all(0.0 < t < 1.0 for t in thrs.values())
     assert "jailbreak" in thrs and "prompt_injection" in thrs
     probs = torch.full((1, 14), 0.999)

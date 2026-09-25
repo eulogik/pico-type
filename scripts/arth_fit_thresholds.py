@@ -14,10 +14,10 @@ take the LOWEST threshold satisfying it — in-dist recall is already saturated 
 any such t, while OOD positives regain headroom. Floors: 0.97 default,
 prompt_injection 0.90 (its near-miss benign family genuinely overlaps).
 
-Writes scripts/risk_thresholds.json: {label: threshold}. Labels absent from the
-file (jwt, ssh_key, password, email, phone) have NO trained positives anywhere
-in training data — risk_flags defaults them to 0.5, and no threshold can fix
-that (they need generators + a training round; see plan log 2026-09-23).
+Writes scripts/risk_thresholds.json: {label: threshold} for all 14 labels
+(since manifest amendment #4 + the ft5 round every label has trained
+positives; before that jwt/ssh_key/password/email/phone had none and were
+correctly absent).
 
 Usage: python scripts/arth_fit_thresholds.py [--ckpt ...]
 """
@@ -109,15 +109,22 @@ def report(name: str, data: dict[str, tuple[np.ndarray, np.ndarray]], thrs: dict
 # (fit-neg mass >=0.01 is 54%); a 0.97 floor would push its T above the shipped
 # 0.47 and cut in-dist recall. Plan does not gate inject.
 MIN_SPEC = {"prompt_injection": 0.90}
-# Battery benign-probe floors (owner decision 2026-09-23, "balanced 3/11"):
-# t must clear the channel scores of the two NEW benign-probe FP items so the
-# probe list stays at 3/11 (2 pre-existing prompt_injection FPs accepted as the
-# known inject limitation). Measured on ft3:
-#   print('hello world')        sql=0.0307 xss=0.0260
-#   SELECT id, name FROM users; jailbreak=0.3972 sql=0.3108 (sql flag ACCEPTED
-#   for external sql_injection recall — residual FP = that one item)
+# Battery benign-probe floors (owner decision 2026-09-23, "balanced 3/11";
+# recalibrated 2026-09-25 for ft5 — channels drift across training rounds, so
+# floors are re-measured on the candidate ckpt, never fit on the audit):
+#   Meeting notes / TODO         prompt_injection  (2 FPs, the accepted
+#                                "known inject limitation", same as ft3)
+#   print('hello world')         sql=0.1730 xss=0.0616 on ft5 (was 0.0307/0.0260
+#                                on ft3 — training raised these channels)
+#   plain benign text            phone=0.0586 on ft5 (phone channel is new)
+#   SELECT id, name FROM users;  sql=0.0476
+# Owner choice B for the sql floor: 0.150 clears SELECT (0.0476) and keeps
+# external-audit sql recall 2/8, deliberately LEAVING print('hello world') as
+# the 3rd accepted FP — clearing it would need T>0.173 and cost an audit
+# positive (the 2nd sits at ~0.16). xss 0.0621 / phone 0.0591 clear their
+# probes at zero audit cost (measured) and all 7 demos still detect.
 # The audit is NEVER used as a floor source.
-PROBE_FLOOR = {"sql_injection": 0.0311, "xss_payload": 0.0261, "jailbreak": 0.398}
+PROBE_FLOOR = {"sql_injection": 0.150, "xss_payload": 0.0621, "jailbreak": 0.398, "phone": 0.0591}
 
 
 def main() -> None:
