@@ -9,9 +9,46 @@ tags:
 - matryoshka
 - lightweight
 - classifier
+- content-moderation
+- risk-detection
+- secrets-detection
+- prompt-injection-detection
+- pii-detection
 pipeline_tag: text-classification
 library_name: pico-type
 arxiv: 2608.14658
+model-index:
+- name: pico-type ARTH V2 (composite)
+  results:
+  - task:
+      type: text-classification
+      name: Risk flagging, 14 labels
+    dataset:
+      name: ARTH external audit (held-out, n=211, never trained or fit on)
+      type: private
+    metrics:
+    - type: recall
+      name: positive-class recall
+      value: 0.536
+    - type: specificity
+      name: specificity
+      value: 0.944
+    - type: balanced error
+      name: balanced error
+      value: 0.260
+  - task:
+      type: text-classification
+      name: ToxicChat jailbreak gate (held-out test split)
+    dataset:
+      name: ToxicChat test (toxicchat0124)
+      type: lmsys/toxic-chat
+    metrics:
+    - type: recall
+      name: recall@threshold
+      value: 0.824
+    - type: accuracy
+      name: selective accuracy at 50% coverage
+      value: 0.973
 ---
 
 # pico-type
@@ -63,6 +100,23 @@ Benchmarked on synthetic data (500 samples, 1024 bytes max, base tier, 1700 trai
 
 > **code_lang** accuracy (54.2%) reflects 62-class coverage; improves with longer sequences (>256 bytes). v0.2 will target better code language discrimination.
 
+## ARTH V2 — Risk++ (current release)
+
+Frozen-trunk composite: ft3 student + retrained 14-label **Risk++** head family (api_key, jwt, ssh_key, password, email, phone, prompt_injection, jailbreak, pii_ssn, pii_card, secrets_aws, secrets_github, sql_injection, xss_payload) with per-label fitted thresholds. **No trunk or semantic/relational drift** — the composite differs from the base model only under `riskpp.*`, so every gate below reproduces the base model byte-for-byte except risk.
+
+| Metric | Before | ARTH V2 |
+|---|---|---|
+| External-audit positive recall (held-out, never fit on) | 0.107 (12/112) | **0.536** (60/112) |
+| Balanced error | 0.459 | **0.260** |
+| Specificity | 0.961 | 0.944 |
+| Fitted label thresholds | 9 | **14** |
+| Legacy parity / choice / noul | 60/60 / 0.737 / 0.929 | unchanged |
+| ToxicChat recall / sel-acc@50 | 0.846 / 0.970 | **0.824 / 0.973** (gate PASS) |
+
+Artifacts ([huggingface.co/eulogik/pico-type](https://huggingface.co/eulogik/pico-type)): `arth_full_base.onnx` (**11.66 MB**, opset 18, IR 8; auto-verify PASS — torch-vs-ORT err 1.1e-05, parity 60/60, semantic 300/300, risk flags 11/11), `arth_full_base_int8.onnx` (4.28 MB, experimental), `risk_thresholds.json`, `temperatures.json`, `arth_final_composite.pt`. Live demo: [Space](https://huggingface.co/spaces/eulogik/pico-type) (`arth` model + Risk++ (14) tab). See README for the copy-paste ONNX + Space-API quickstarts.
+
+**Known limitations (measured 2026-09):** pii_ssn 0.125, api_key 0.625, jailbreak 0.50 on embedded phrasing; 3/11 hand-picked benign probes still flag (incl. accepted `print('hello world')`→sql); long-document signals dilute in fixed-window pooling; general-classification gates (AG/SST-2/Enron) stay at chance — a byte-pattern risk flagger, not a general text classifier.
+
 ## Usage
 
 ### CLI
@@ -109,6 +163,7 @@ The [Gradio Space](https://huggingface.co/spaces/eulogik/pico-type) provides:
 - Text input and file upload
 - Real-time 7-head classification
 - Tier selection (tiny/small/base/pro)
+- **ARTH V2 (default)**: same 7 heads plus a Risk++ (14) tab with fitted thresholds and `[FLAG]` markers
 
 ### ONNX Runtime
 ```python

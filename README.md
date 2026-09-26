@@ -27,6 +27,61 @@ Classifies any content from raw bytes: **coarse type · modality · subtype · c
 - **~18ms inference** on CPU via ONNX Runtime
 - **CLI, Python API, Gradio Space, MCP server** — ready to use
 
+## 🛡️ ARTH V2 — Risk++ (new)
+
+**[Try it live — pick the `arth` model](https://huggingface.co/spaces/eulogik/pico-type)** · [Model files](https://huggingface.co/eulogik/pico-type) (`arth_full_base.onnx`, `risk_thresholds.json`, `temperatures.json`, `arth_final_composite.pt`)
+
+Frozen-trunk composite (ft3 student + retrained 14-label **Risk++** head) — audit recall up **5× with zero regressions** on every shipped gate:
+
+| Metric | Before (ft3) | ARTH V2 (composite) |
+|---|---|---|
+| External-audit positive recall (held-out, never trained/fit on) | 0.107 | **0.536** (60/112) |
+| Balanced error | 0.459 | **0.260** |
+| Specificity | 0.961 | 0.944 |
+| Labels with fitted thresholds | 9 | **14** |
+| Legacy parity | 60/60 | 60/60 |
+| Choice accuracy | 0.737 | 0.737 |
+| Noul abstain | 0.929 | 0.929 |
+| ToxicChat jailbreak recall / sel-acc@50 | 0.846 / 0.970 | **0.824 / 0.973** (gate PASS) |
+
+Formerly-dead labels now detected: jwt / ssh_key / email **8/8**, password 0.875, phone 0.750. Artifact: **`arth_full_base.onnx` (11.66 MB, opset 18)** — auto-verified (torch-vs-ORT err 1.1e-05, parity 60/60, semantic 300/300, risk flags 11/11); INT8 4.28 MB experimental.
+
+**Known limitations (measured):** pii_ssn 0.125, api_key 0.625, jailbreak 0.50 on embedded phrasing; 3/11 hand-picked benign probes still flag (incl. the accepted `print('hello world')`→sql); long-document signals dilute in fixed-window pooling; general-classification gates (AG/SST-2/Enron) stay at chance — this is a byte-pattern risk flagger, not a general text classifier.
+
+### ARTH quickstart (ONNX)
+
+```python
+import json, math
+import numpy as np, onnxruntime as ort
+from huggingface_hub import hf_hub_download
+
+sess = ort.InferenceSession(hf_hub_download("eulogik/pico-type", "arth_full_base.onnx"))
+thrs = json.load(open(hf_hub_download("eulogik/pico-type", "risk_thresholds.json")))
+LABELS = ["api_key","jwt","ssh_key","password","email","phone","prompt_injection",
+          "jailbreak","pii_ssn","pii_card","secrets_aws","secrets_github",
+          "sql_injection","xss_payload"]
+
+raw = open("file.txt","rb").read()[:1024]
+ids = np.zeros(1024, np.int64); ids[:len(raw)] = list(raw)
+mask = np.zeros(1024, bool); mask[:len(raw)] = True
+(logits,) = sess.run(["riskpp_logits"], {
+    "input_ids": ids[None,:], "attention_mask": mask[None,:],
+    "opt_embs": np.zeros((1,4,96), np.float32),
+    "struct_feats": np.zeros((1,14), np.float32),
+    "act_stats": np.zeros((1,4), np.float32)})
+probs = [1/(1+math.exp(-x)) for x in logits[0]]
+print({l: round(p,4) for l,p in zip(LABELS, probs) if p >= thrs[l]})  # fired flags
+```
+
+### ARTH quickstart (live Space API)
+
+```python
+from gradio_client import Client
+c = Client("eulogik/pico-type")
+out = c.predict("aws_access_key_id = AKIAIOSFODNN7EXAMPLE", "arth", api_name="/handle_classify")
+print(out[7])  # Risk++ (14) tab: probs + [FLAG] markers
+```
+
 ## 📊 Evaluation
 
 ### Overall Accuracy (v2 — trained on real data)
@@ -161,8 +216,8 @@ All tiers share the same backbone; only the final linear projection layers diffe
 
 | Platform | Link | Notes |
 |----------|------|-------|
-| **HuggingFace Space** | [eulogik/pico-type](https://huggingface.co/spaces/eulogik/pico-type) | Gradio web UI, no GPU needed |
-| **HuggingFace Model** | [eulogik/pico-type](https://huggingface.co/eulogik/pico-type) | ONNX models + export metadata |
+| **HuggingFace Space** | [eulogik/pico-type](https://huggingface.co/spaces/eulogik/pico-type) | Gradio web UI, no GPU needed — ARTH V2 + Risk++ (14) by default |
+| **HuggingFace Model** | [eulogik/pico-type](https://huggingface.co/eulogik/pico-type) | ONNX models + ARTH V2 artifacts (`arth_full_base.onnx`, thresholds, temps, ckpt) |
 | **GitHub** | [eulogik/pico-type](https://github.com/eulogik/pico-type) | Source code, training, paper |
 | **PyPI** | `pip install picotype` | Python package |
 | **ONNX Runtime** | Use with onnxruntime.js | Browser/Node.js deployment |
